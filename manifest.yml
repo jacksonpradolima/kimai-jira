@@ -1,0 +1,69 @@
+# Forge app manifest for the Kimai <-> Jira Cloud integration.
+#
+# NOTE for maintainers:
+# - The `app.id` below is a placeholder. Running `forge register` (see
+#   docs/development.md) will create/attach a real app id for your own
+#   Atlassian developer environment and update this field automatically.
+# - `permissions.external.fetch.backend` must list the real hostname(s) of
+#   the self-hosted Kimai instance(s) this app is allowed to call. Replace
+#   the placeholder before deploying; never commit real production URLs
+#   that embed credentials.
+app:
+  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  runtime:
+    name: nodejs20.x
+
+modules:
+  jira:issueContext:
+    - key: kimai-issue-context
+      title: Kimai
+      render: native
+      resource: issue-context
+      resolver:
+        function: issue-context-resolver
+
+  jira:adminPage:
+    - key: kimai-admin-page
+      title: Kimai Integration
+      render: native
+      resource: admin
+      resolver:
+        function: configuration-resolver
+
+  trigger:
+    - key: jira-worklog-events
+      function: jira-worklog-handler
+      events:
+        - avi:jira:created:worklog
+        - avi:jira:updated:worklog
+        - avi:jira:deleted:worklog
+
+  webtrigger:
+    - key: kimai-webhook
+      function: kimai-webhook-handler
+
+  function:
+    - key: issue-context-resolver
+      handler: src/resolvers/issue-context.handler
+    - key: configuration-resolver
+      handler: src/resolvers/configuration.handler
+    - key: jira-worklog-handler
+      handler: src/jira/worklog-events.handler
+    - key: kimai-webhook-handler
+      handler: src/webhooks/kimai-webhook.handler
+
+resources:
+  - key: issue-context
+    path: src/frontend/issue-context
+  - key: admin
+    path: src/frontend/admin
+
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - storage:app
+  external:
+    fetch:
+      backend:
+        - https://kimai.example.com

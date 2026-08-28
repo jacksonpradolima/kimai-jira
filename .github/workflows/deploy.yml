@@ -1,0 +1,42 @@
+name: Deploy
+
+# Deployment is intentionally decoupled from CI validation (ci.yml) and is
+# never triggered automatically by pull requests. It only runs when a
+# maintainer explicitly dispatches it, and it requires the `forge-deploy`
+# GitHub Environment to be configured with production Forge credentials.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Forge environment to deploy (development, staging, production)'
+        required: true
+        default: development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: forge-deploy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - name: Forge deploy
+        env:
+          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+        run: |
+          npx forge settings set usage-analytics false
+          npx forge deploy --environment "${{ github.event.inputs.environment }}" --non-interactive

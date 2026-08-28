@@ -1,0 +1,37 @@
+{
+  "name": "kimai-for-jira",
+  "version": "0.1.0",
+  "description": "Open-source Kimai integration for Jira Cloud, built with Atlassian Forge",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "@forge/api": "^8.0.4",
+    "@forge/bridge": "^6.3.0",
+    "@forge/kvs": "^2.0.4",
+    "@forge/react": "^12.1.2",
+    "@forge/resolver": "^2.0.0"
+  },
+  "devDependencies": {
+    "@forge/cli": "^13.4.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
