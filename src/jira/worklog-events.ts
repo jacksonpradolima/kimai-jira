@@ -51,6 +51,16 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     return;
   }
 
+  if (!config.defaultProjectId || !config.defaultActivityId) {
+    logger.warn({
+      event: 'worklog.sync_skipped_missing_defaults',
+      direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id,
+      result: 'failure',
+    });
+    return;
+  }
+
   const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
 
   await syncJiraWorklogToKimai(client, {
@@ -59,8 +69,8 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     jiraWorklogId: event.worklog.id,
     authorAccountId: event.worklog.authorAccountId,
     kimaiUserId: userMapping.kimaiUserId,
-    kimaiProjectId: config.defaultProjectId ?? 0,
-    kimaiActivityId: config.defaultActivityId ?? 0,
+    kimaiProjectId: config.defaultProjectId,
+    kimaiActivityId: config.defaultActivityId,
     started: event.worklog.started,
     timeSpentSeconds: event.worklog.timeSpentSeconds,
     comment: event.worklog.comment,

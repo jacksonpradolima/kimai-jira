@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { WorklogMapping } from '../shared/types';
 
 /**
@@ -31,11 +32,7 @@ export function computeContentHash(fields: Record<string, unknown>): string {
     .map((key) => `${key}=${JSON.stringify(fields[key])}`)
     .join('&');
 
-  let hash = 0;
-  for (let i = 0; i < normalized.length; i += 1) {
-    hash = (hash * 31 + normalized.charCodeAt(i)) | 0;
-  }
-  return hash.toString(16);
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 export function mergeMapping(

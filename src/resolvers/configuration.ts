@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import Resolver from '@forge/resolver';
 import { getKimaiConfig, getSyncSettings, setKimaiConfig, setSyncSettings } from '../storage/config';
 import { getKimaiApiToken, setKimaiApiToken, setKimaiWebhookSecret } from '../storage/secrets';
@@ -59,11 +60,7 @@ resolver.define('testConnection', async () => {
 });
 
 function generateSecret(): string {
-  const bytes = new Uint8Array(32);
-  for (let i = 0; i < bytes.length; i += 1) {
-    bytes[i] = Math.floor(Math.random() * 256);
-  }
-  return Buffer.from(bytes).toString('hex');
+  return crypto.randomBytes(32).toString('hex');
 }
 
 export const handler = resolver.getDefinitions();
