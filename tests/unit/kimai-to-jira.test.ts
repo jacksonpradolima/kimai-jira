@@ -1,0 +1,112 @@
+jest.mock('../../src/storage/mappings', () => ({
+  saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
+  getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
+  getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
+}));
+
+import { JiraClient } from '../../src/jira/client';
+import { computeContentHash } from '../../src/sync/idempotency';
+import {
+  normalizeKimaiDescription,
+  syncKimaiTimesheetToJira,
+} from '../../src/sync/kimai-to-jira';
+import * as mappingsStorage from '../../src/storage/mappings';
+
+function buildClient(overrides: Partial<JiraClient> = {}): JiraClient {
+  return {
+    createWorklog: jest.fn().mockResolvedValue({
+      id: '100271',
+      issueId: '10001',
+      started: '2026-08-27T10:00:00.000Z',
+      timeSpentSeconds: 3600,
+      comment: '1-1 Meetings',
+    }),
+    updateWorklog: jest.fn().mockResolvedValue({
+      id: '100271',
+      issueId: '10001',
+      started: '2026-08-27T10:00:00.000Z',
+      timeSpentSeconds: 3600,
+      comment: '1-1 Meetings',
+    }),
+    getWorklog: jest.fn(),
+    ...overrides,
+  };
+}
+
+const baseChange = {
+  kimaiTimesheetId: 8291,
+  jiraIssueKey: 'BA-3',
+  begin: '2026-08-27T10:00:00.000Z',
+  end: '2026-08-27T11:00:00.000Z',
+  description: '[BA-3] 1-1 Meetings',
+};
+
+describe('normalizeKimaiDescription', () => {
+  it('removes a leading Jira issue marker from Kimai descriptions', () => {
+    expect(normalizeKimaiDescription('[BA-3] 1-1 Meetings', 'BA-3')).toBe('1-1 Meetings');
+  });
+
+  it('leaves descriptions for other issues unchanged', () => {
+    expect(normalizeKimaiDescription('[BA-4] 1-1 Meetings', 'BA-3')).toBe(
+      '[BA-4] 1-1 Meetings',
+    );
+  });
+});
+
+describe('syncKimaiTimesheetToJira', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('creates Jira worklogs with the canonical comment and issue ID mapping', async () => {
+    const client = buildClient();
+    const mapping = await syncKimaiTimesheetToJira(client, baseChange);
+
+    expect(client.createWorklog).toHaveBeenCalledWith({
+      issueIdOrKey: 'BA-3',
+      started: '2026-08-27T10:00:00.000Z',
+      timeSpentSeconds: 3600,
+      comment: '1-1 Meetings',
+    });
+    expect(mapping?.jiraIssueId).toBe('10001');
+    expect(mapping?.lastHash).toBe(
+      computeContentHash({
+        started: baseChange.begin,
+        duration: 3600,
+        comment: '1-1 Meetings',
+      }),
+    );
+  });
+
+  it('skips Jira-originated Kimai webhook echoes with unchanged canonical content', async () => {
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'jira',
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: computeContentHash({
+        started: baseChange.begin,
+        duration: 3600,
+        comment: '1-1 Meetings',
+      }),
+    });
+
+    const client = buildClient();
+    await syncKimaiTimesheetToJira(client, baseChange);
+
+    expect(client.createWorklog).not.toHaveBeenCalled();
+    expect(client.updateWorklog).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid timestamps before sending to Jira', async () => {
+    const client = buildClient();
+
+    await expect(
+      syncKimaiTimesheetToJira(client, { ...baseChange, begin: 'invalid' }),
+    ).rejects.toThrow(RangeError);
+    expect(client.createWorklog).not.toHaveBeenCalled();
+    expect(client.updateWorklog).not.toHaveBeenCalled();
+  });
+});

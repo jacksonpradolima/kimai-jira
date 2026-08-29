@@ -15,8 +15,14 @@ all non-secret values through `src/storage/config.ts` and `src/storage/secrets.t
   project override.
 - **Default Kimai activity ID** — used alongside the default project for Jira → Kimai syncs.
 
-The broader config surface in earlier docs (full sync toggles, webhook URL/secret management, and
-per-user mappings) is still planned and not yet exposed in this admin UI.
+## User mappings
+
+- **Jira account ID** — Jira user account identifier from worklog events.
+- **Mapped Kimai user ID** — Kimai user ID that receives Jira-originated timesheets for that Jira
+  account.
+
+The broader config surface in earlier docs (full sync toggles and webhook URL/secret management) is
+still planned and not yet exposed in this admin UI.
 
 ## What is never stored in plain configuration
 

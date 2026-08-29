@@ -35,10 +35,11 @@ Once installed, open **Jira administration → Apps → Kimai Integration** and 
 
 - the Kimai base URL;
 - a Kimai API token (stored using the Forge Secret Store, never written to Git);
-- optional default project/activity IDs used by Jira → Kimai syncs.
+- optional default project/activity IDs used by Jira → Kimai syncs;
+- Jira account ID → Kimai user ID mappings for users whose Jira worklogs should sync into Kimai.
 
-The current UI does not yet expose every documented toggle or per-user mapping flow; see
-[Configuration](configuration.md) for the supported settings today.
+The current UI does not yet expose every documented toggle; see [Configuration](configuration.md)
+for the supported settings today.
 
 ## 5. Point Kimai webhooks at the app
 

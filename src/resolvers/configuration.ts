@@ -40,9 +40,15 @@ resolver.define('saveConnectionSettings', async (request) => {
 
 resolver.define('saveUserMapping', async (request) => {
   const payload = request.payload as UserMapping;
+  const kimaiUserId = coerceId(payload.kimaiUserId);
+
+  if (!payload.jiraAccountId || kimaiUserId === undefined) {
+    return { ok: false, error: 'Jira account ID and Kimai user ID are required.' };
+  }
+
   const mapping: UserMapping = {
     jiraAccountId: payload.jiraAccountId,
-    kimaiUserId: payload.kimaiUserId,
+    kimaiUserId,
     enabled: payload.enabled ?? true,
   };
 

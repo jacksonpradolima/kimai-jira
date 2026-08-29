@@ -32,8 +32,11 @@ const App = () => {
   const [apiToken, setApiToken] = useState('');
   const [defaultProjectId, setDefaultProjectId] = useState('');
   const [defaultActivityId, setDefaultActivityId] = useState('');
+  const [jiraAccountId, setJiraAccountId] = useState('');
+  const [kimaiUserId, setKimaiUserId] = useState('');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [testResult, setTestResult] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     invoke('getConfiguration')
@@ -61,11 +64,42 @@ const App = () => {
         defaultProjectId: defaultProjectId === '' ? undefined : Number(defaultProjectId),
         defaultActivityId: defaultActivityId === '' ? undefined : Number(defaultActivityId),
       });
+
+      if (jiraAccountId || kimaiUserId) {
+        const mappingResult = (await invoke('saveUserMapping', {
+          jiraAccountId,
+          kimaiUserId: kimaiUserId === '' ? undefined : Number(kimaiUserId),
+          enabled: true,
+        })) as { ok?: boolean; error?: string };
+
+        if (!mappingResult.ok) {
+          throw new Error(mappingResult.error ?? 'Unable to save the user mapping.');
+        }
+      }
+
       setSaved(true);
       setError(undefined);
     } catch (saveError) {
       setSaved(false);
       setError(`Unable to save the Kimai configuration: ${String(saveError)}`);
+    }
+  };
+
+  const onTestConnection = async () => {
+    try {
+      const result = (await invoke('testConnection')) as {
+        ok?: boolean;
+        error?: string;
+        user?: { username?: string; email?: string };
+      };
+
+      setTestResult(
+        result.ok
+          ? `Connected${result.user?.username ? ` as ${result.user.username}` : ''}.`
+          : result.error ?? 'Unable to connect to Kimai.',
+      );
+    } catch (testError) {
+      setTestResult(`Unable to test the Kimai connection: ${String(testError)}`);
     }
   };
 
@@ -76,7 +110,7 @@ const App = () => {
   return (
     <Stack space="space.200">
       <Text>Kimai Integration</Text>
-      <Text>Store the base URL and API token for this Jira site’s Kimai connection.</Text>
+      <Text>Store the base URL, API token, defaults, and Jira user mappings.</Text>
       <FormSection>
         <Label labelFor="kimai-url">Kimai URL</Label>
         <Textfield
@@ -114,10 +148,32 @@ const App = () => {
           }
         />
       </FormSection>
+      <FormSection>
+        <Label labelFor="jira-account-id">Jira account ID</Label>
+        <Textfield
+          id="jira-account-id"
+          value={jiraAccountId}
+          onChange={(e: { target: { value?: unknown } }) =>
+            setJiraAccountId(String(e.target.value ?? ''))
+          }
+        />
+      </FormSection>
+      <FormSection>
+        <Label labelFor="kimai-user-id">Mapped Kimai user ID</Label>
+        <Textfield
+          id="kimai-user-id"
+          value={kimaiUserId}
+          onChange={(e: { target: { value?: unknown } }) =>
+            setKimaiUserId(String(e.target.value ?? ''))
+          }
+        />
+      </FormSection>
       <Button appearance="primary" onClick={onSave}>
         Save
       </Button>
+      <Button onClick={onTestConnection}>Test connection</Button>
       {error && <Text>{error}</Text>}
+      {testResult && <Text>{testResult}</Text>}
       {saved && <Text>Saved.</Text>}
     </Stack>
   );

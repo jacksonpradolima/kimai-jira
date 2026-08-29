@@ -32,11 +32,12 @@ export async function syncKimaiTimesheetToJira(
   }
 
   const timeSpentSeconds = Math.max(0, Math.round((endMs - beginMs) / 1000));
+  const comment = normalizeKimaiDescription(change.description, change.jiraIssueKey);
 
   const hash = computeContentHash({
     started: change.begin,
     duration: timeSpentSeconds,
-    comment: change.description ?? '',
+    comment,
   });
 
   if (shouldSkipSyncEvent(existing, { hash })) {
@@ -54,13 +55,13 @@ export async function syncKimaiTimesheetToJira(
     ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
         started: change.begin,
         timeSpentSeconds,
-        comment: change.description,
+        comment,
       })
     : await client.createWorklog({
         issueIdOrKey: change.jiraIssueKey,
         started: change.begin,
         timeSpentSeconds,
-        comment: change.description,
+        comment,
       });
 
   const mapping = mergeMapping(existing, {
@@ -84,4 +85,16 @@ export async function syncKimaiTimesheetToJira(
   });
 
   return mapping;
+}
+
+export function normalizeKimaiDescription(
+  description: string | undefined,
+  jiraIssueKey: string,
+): string {
+  if (!description) {
+    return '';
+  }
+
+  const escapedIssueKey = jiraIssueKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return description.replace(new RegExp(`^\\s*\\[${escapedIssueKey}\\]\\s*`), '');
 }
