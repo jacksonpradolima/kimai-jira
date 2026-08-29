@@ -1,3 +1,4 @@
+import { ForgeJiraClient } from './client';
 import { HttpKimaiClient } from '../kimai/client';
 import { getKimaiConfig } from '../storage/config';
 import { getKimaiApiToken } from '../storage/secrets';
@@ -11,12 +12,13 @@ interface JiraWorklogEvent {
   worklog: {
     id: string;
     issueId: string;
-    authorAccountId: string;
+    author?: { accountId?: string };
+    authorAccountId?: string;
     started: string;
     timeSpentSeconds: number;
-    comment?: string;
+    comment?: unknown;
   };
-  issue?: { key: string };
+  issue?: { key?: string };
 }
 
 /**
@@ -35,9 +37,12 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     return;
   }
 
-  if (!event.issue?.key) {
+  const jiraIssueKey = event.issue?.key ?? (await new ForgeJiraClient().getIssueKey(event.worklog.issueId));
+  const authorAccountId = event.worklog.author?.accountId ?? event.worklog.authorAccountId;
+
+  if (!authorAccountId) {
     logger.warn({
-      event: 'worklog.sync_skipped_missing_issue_key',
+      event: 'worklog.sync_skipped_missing_author',
       direction: 'jira-to-kimai',
       jiraWorklogId: event.worklog.id,
       result: 'failure',
@@ -48,7 +53,7 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
   const [config, apiToken, userMapping] = await Promise.all([
     getKimaiConfig(),
     getKimaiApiToken(),
-    getUserMapping(event.worklog.authorAccountId),
+    getUserMapping(authorAccountId),
   ]);
 
   if (!config || !apiToken || !userMapping?.enabled) {
@@ -75,15 +80,43 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
 
   await syncJiraWorklogToKimai(client, {
     jiraIssueId: event.worklog.issueId,
-    jiraIssueKey: event.issue.key,
+    jiraIssueKey,
     jiraWorklogId: event.worklog.id,
-    authorAccountId: event.worklog.authorAccountId,
+    authorAccountId,
     kimaiUserId: userMapping.kimaiUserId,
     kimaiProjectId: config.defaultProjectId,
     kimaiActivityId: config.defaultActivityId,
     started: event.worklog.started,
     timeSpentSeconds: event.worklog.timeSpentSeconds,
-    comment: event.worklog.comment,
+    comment: jiraCommentToText(event.worklog.comment),
     selfGenerated: event.selfGenerated,
   });
+}
+
+function jiraCommentToText(comment: unknown): string | undefined {
+  if (typeof comment === 'string') {
+    return comment;
+  }
+
+  if (!comment || typeof comment !== 'object') {
+    return undefined;
+  }
+
+  const text: string[] = [];
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== 'object') {
+      return;
+    }
+
+    const value = node as { text?: unknown; content?: unknown };
+    if (typeof value.text === 'string') {
+      text.push(value.text);
+    }
+    if (Array.isArray(value.content)) {
+      value.content.forEach(visit);
+    }
+  };
+
+  visit(comment);
+  return text.length > 0 ? text.join('') : undefined;
 }

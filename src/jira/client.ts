@@ -21,6 +21,22 @@ export interface JiraWorklog {
   comment?: string;
 }
 
+export interface JiraIssueResolver {
+  getIssueKey(issueIdOrKey: string): Promise<string>;
+}
+
+interface JiraAdfDocument {
+  type: 'doc';
+  version: 1;
+  content: Array<{
+    type: 'paragraph';
+    content: Array<{
+      type: 'text';
+      text: string;
+    }>;
+  }>;
+}
+
 /**
  * Thin wrapper around the Jira REST API worklog endpoints. All calls are
  * made `asApp()` so they do not depend on the identity of the user who
@@ -37,7 +53,7 @@ export interface JiraClient {
   getWorklog(issueIdOrKey: string, worklogId: string): Promise<JiraWorklog>;
 }
 
-export class ForgeJiraClient implements JiraClient {
+export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
   async createWorklog(input: CreateJiraWorklogInput): Promise<JiraWorklog> {
     const response = await asApp().requestJira(
       route`/rest/api/3/issue/${input.issueIdOrKey}/worklog`,
@@ -47,7 +63,7 @@ export class ForgeJiraClient implements JiraClient {
         body: JSON.stringify({
           started: toJiraTimestamp(input.started),
           timeSpentSeconds: input.timeSpentSeconds,
-          comment: input.comment,
+          comment: toJiraAdfDocument(input.comment),
         }),
       },
     );
@@ -75,7 +91,7 @@ export class ForgeJiraClient implements JiraClient {
         body: JSON.stringify({
           started: input.started ? toJiraTimestamp(input.started) : undefined,
           timeSpentSeconds: input.timeSpentSeconds,
-          comment: input.comment,
+          comment: toJiraAdfDocument(input.comment),
         }),
       },
     );
@@ -104,6 +120,26 @@ export class ForgeJiraClient implements JiraClient {
 
     return (await response.json()) as JiraWorklog;
   }
+
+  async getIssueKey(issueIdOrKey: string): Promise<string> {
+    const response = await asApp().requestJira(
+      route`/rest/api/3/issue/${issueIdOrKey}?fields=key`,
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira issue lookup failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
+
+    const issue = (await response.json()) as { key?: unknown };
+    if (typeof issue.key !== 'string' || !issue.key) {
+      throw new Error(`Jira issue lookup returned no key for ${issueIdOrKey}`);
+    }
+
+    return issue.key;
+  }
 }
 
 /**
@@ -117,4 +153,21 @@ export function toJiraTimestamp(isoDate: string): string {
   }
 
   return date.toISOString().replace('Z', '+0000');
+}
+
+export function toJiraAdfDocument(comment: string | undefined): JiraAdfDocument | undefined {
+  if (comment === undefined || comment === '') {
+    return undefined;
+  }
+
+  return {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: comment }],
+      },
+    ],
+  };
 }

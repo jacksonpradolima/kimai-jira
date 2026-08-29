@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import { webTrigger } from '@forge/api';
 import Resolver from '@forge/resolver';
 import { getKimaiConfig, getSyncSettings, setKimaiConfig, setSyncSettings } from '../storage/config';
 import { getKimaiApiToken, setKimaiApiToken, setKimaiWebhookSecret } from '../storage/secrets';
@@ -11,7 +12,15 @@ const resolver = new Resolver();
 
 resolver.define('getConfiguration', async () => {
   const [config, sync] = await Promise.all([getKimaiConfig(), getSyncSettings()]);
-  return { config, sync };
+  let webhookUrl: string | undefined;
+
+  try {
+    webhookUrl = await webTrigger.getUrl('kimai-webhook');
+  } catch {
+    // Connection settings remain usable if Forge cannot provision the URL yet.
+  }
+
+  return { config, sync, webhookUrl };
 });
 
 resolver.define('saveConnectionSettings', async (request) => {

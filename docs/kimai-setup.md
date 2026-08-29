@@ -29,8 +29,8 @@ Store and never stored in plain configuration or Git.
 
 ## Configuring the webhook
 
-1. Open the app's admin page in Jira and copy the **Forge webhook URL** and **Kimai webhook
-   secret**.
+1. Open the app's admin page in Jira and select **Generate webhook secret**. Use the generated
+   secret with the Forge webhook URL for this app.
 2. In Kimai, configure a webhook that POSTs `timesheet.created` and `timesheet.updated` events to
    that URL.
 3. Kimai must sign the request body with the shared secret (e.g. an `X-Kimai-Signature: sha256=...`

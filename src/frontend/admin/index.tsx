@@ -16,6 +16,7 @@ interface ConfigurationState {
     defaultProjectId?: number;
     defaultActivityId?: number;
   };
+  webhookUrl?: string;
 }
 
 /**
@@ -37,6 +38,7 @@ const App = () => {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [testResult, setTestResult] = useState<string | undefined>(undefined);
+  const [webhookSecret, setWebhookSecret] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     invoke('getConfiguration')
@@ -100,6 +102,24 @@ const App = () => {
       );
     } catch (testError) {
       setTestResult(`Unable to test the Kimai connection: ${String(testError)}`);
+    }
+  };
+
+  const onGenerateWebhookSecret = async () => {
+    try {
+      const result = (await invoke('rotateWebhookSecret')) as {
+        ok?: boolean;
+        secret?: string;
+      };
+
+      if (!result.ok || !result.secret) {
+        throw new Error('Unable to generate the Kimai webhook secret.');
+      }
+
+      setWebhookSecret(result.secret);
+      setError(undefined);
+    } catch (secretError) {
+      setError(`Unable to generate the Kimai webhook secret: ${String(secretError)}`);
     }
   };
 
@@ -172,8 +192,11 @@ const App = () => {
         Save
       </Button>
       <Button onClick={onTestConnection}>Test connection</Button>
+      <Button onClick={onGenerateWebhookSecret}>Generate webhook secret</Button>
+      {state.webhookUrl && <Text>{state.webhookUrl}</Text>}
       {error && <Text>{error}</Text>}
       {testResult && <Text>{testResult}</Text>}
+      {webhookSecret && <Text>{webhookSecret}</Text>}
       {saved && <Text>Saved.</Text>}
     </Stack>
   );

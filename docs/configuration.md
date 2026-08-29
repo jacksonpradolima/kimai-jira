@@ -21,8 +21,12 @@ all non-secret values through `src/storage/config.ts` and `src/storage/secrets.t
 - **Mapped Kimai user ID** — Kimai user ID that receives Jira-originated timesheets for that Jira
   account.
 
-The broader config surface in earlier docs (full sync toggles and webhook URL/secret management) is
-still planned and not yet exposed in this admin UI.
+## Webhook secret
+
+Use **Generate webhook secret** in the admin page before configuring the Kimai webhook. The
+generated value is displayed once and stored in the Forge Secret Store for signature verification.
+
+Full sync toggles remain planned and are not yet exposed in this admin UI.
 
 ## What is never stored in plain configuration
 

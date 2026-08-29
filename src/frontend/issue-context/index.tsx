@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ForgeReconciler, { Text, Button, Stack, Tabs, Tab, TabList, TabPanel } from '@forge/react';
-import { invoke } from '@forge/bridge';
+import { invoke, view } from '@forge/bridge';
 
 interface TimerState {
   configured: boolean;
@@ -19,16 +19,21 @@ interface TimerState {
 const App = () => {
   const [state, setState] = useState<TimerState | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    invoke('getIssueTimerState')
-      .then((result) => setState(result as TimerState))
+    Promise.all([invoke('getIssueTimerState'), view.getContext()])
+      .then(([result, context]) => {
+        setState(result as TimerState);
+        const key = context.extension.issue?.key;
+        setIssueKey(typeof key === 'string' ? key : undefined);
+      })
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);
 
   const handleStart = async () => {
-    if (!state?.defaultProjectId || !state?.defaultActivityId) {
-      setError('Set the default Kimai project and activity before starting a timer.');
+    if (!state?.defaultProjectId || !state?.defaultActivityId || !issueKey) {
+      setError('Open a Jira issue after setting the default Kimai project and activity.');
       return;
     }
 
@@ -36,7 +41,7 @@ const App = () => {
       const result = (await invoke('startTimer', {
         project: state.defaultProjectId,
         activity: state.defaultActivityId,
-        description: 'Jira issue timer',
+        description: `[${issueKey}] Jira issue timer`,
       })) as { ok?: boolean; error?: string };
 
       if (!result?.ok) {
