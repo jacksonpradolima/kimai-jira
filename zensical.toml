@@ -1,0 +1,62 @@
+[project]
+site_name = "Kimai for Jira"
+site_description = "Open-source Kimai integration for Jira Cloud, built with Atlassian Forge"
+site_url = "https://jacksonpradolima.github.io/kimai-jira/"
+repo_name = "jacksonpradolima/kimai-jira"
+repo_url = "https://github.com/jacksonpradolima/kimai-jira"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { "Installation" = "installation.md" },
+  { "Jira Setup" = "jira-setup.md" },
+  { "Kimai Setup" = "kimai-setup.md" },
+  { "Configuration" = "configuration.md" },
+  { "Architecture" = "architecture.md" },
+  { "Synchronization Model" = "synchronization-model.md" },
+  { "Development" = "development.md" },
+  { "Testing" = "testing.md" },
+  { "Troubleshooting" = "troubleshooting.md" },
+  { "Security" = "security.md" },
+  { "Contributing" = "contributing.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "navigation.instant",
+  "navigation.tracking",
+  "navigation.top",
+  "navigation.footer",
+  "content.code.copy",
+  "content.action.edit",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "material/brightness-auto"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+toc.permalink = true
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true

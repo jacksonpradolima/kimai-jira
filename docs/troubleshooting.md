@@ -34,5 +34,5 @@ Forge blocks egress by default. Confirm the Kimai hostname is declared under
 
 ## Documentation site fails to build
 
-Run `zensical build --clean -f mkdocs.yml --strict` locally (see [Development](development.md)) to
+Run `zensical build --clean -f zensical.toml --strict` locally (see [Development](development.md)) to
 reproduce the same check used in CI, and fix any reported broken links or invalid Markdown.

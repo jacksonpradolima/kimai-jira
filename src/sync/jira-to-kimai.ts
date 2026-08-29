@@ -43,13 +43,18 @@ export async function syncJiraWorklogToKimai(
   }
 
   const existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
+  const startedMs = new Date(change.started).getTime();
+  if (Number.isNaN(startedMs)) {
+    throw new RangeError(`Invalid Jira worklog timestamp: ${change.started}`);
+  }
+
   const hash = computeContentHash({
     started: change.started,
     duration: change.timeSpentSeconds,
     comment: change.comment ?? '',
   });
 
-  if (shouldSkipSyncEvent(existing, { origin: 'jira', hash })) {
+  if (shouldSkipSyncEvent(existing, { hash })) {
     logger.info({
       event: 'worklog.duplicate_ignored',
       direction: 'jira-to-kimai',
@@ -61,9 +66,7 @@ export async function syncJiraWorklogToKimai(
   }
 
   const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
-  const endIso = new Date(
-    new Date(change.started).getTime() + change.timeSpentSeconds * 1000,
-  ).toISOString();
+  const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
 
   const timesheet = existing
     ? await client.updateTimesheet(existing.kimaiTimesheetId, {
@@ -77,6 +80,7 @@ export async function syncJiraWorklogToKimai(
         description,
         project: change.kimaiProjectId,
         activity: change.kimaiActivityId,
+        user: change.kimaiUserId,
       });
 
   const mapping = mergeMapping(existing, {

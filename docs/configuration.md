@@ -1,36 +1,22 @@
 # Configuration
 
-The admin page (`jira:adminPage`) exposes the following settings, all persisted through
-`src/storage/config.ts` and `src/storage/secrets.ts`:
+The current admin page (`jira:adminPage`) exposes the settings that are implemented today and stores
+all non-secret values through `src/storage/config.ts` and `src/storage/secrets.ts`:
 
 ## Connection
 
 - **Kimai URL** — base URL of the Kimai instance.
-- **API Token** — stored via `kvs.setSecret`, never returned to the browser once saved.
+- **API Token** — stored via the Forge Secret Store, never returned to the browser after saving.
 - **Test Connection** — calls `GET /api/users/me` on Kimai to validate the configuration.
-
-## Synchronization
-
-- Jira → Kimai (on/off)
-- Kimai → Jira (on/off)
-- Allow create / update / delete (delete is off by default; see
-  [Synchronization Model](synchronization-model.md))
-
-## Timer
-
-- Enable/disable the issue timer panel.
-- Automatically create a Jira worklog when a timer is stopped.
 
 ## Defaults
 
-- Default Kimai project and activity, used when a worklog event does not specify one.
-- Default billable flag for manual entries.
+- **Default Kimai project ID** — used for Jira → Kimai syncs when a worklog is created without a
+  project override.
+- **Default Kimai activity ID** — used alongside the default project for Jira → Kimai syncs.
 
-## Webhook
-
-- The generated Forge web trigger URL for incoming Kimai webhooks.
-- A rotatable webhook secret, used to verify Kimai's HMAC signature
-  (`src/webhooks/verify-signature.ts`).
+The broader config surface in earlier docs (full sync toggles, webhook URL/secret management, and
+per-user mappings) is still planned and not yet exposed in this admin UI.
 
 ## What is never stored in plain configuration
 

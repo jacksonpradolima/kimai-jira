@@ -41,7 +41,7 @@ jobs:
         env:
           FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
           FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
-        continue-on-error: true
+        continue-on-error: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
         run: |
           npx forge settings set usage-analytics false
           npx forge lint

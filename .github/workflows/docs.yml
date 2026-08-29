@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
+      - 'zensical.toml'
       - '.github/workflows/docs.yml'
   pull_request:
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
+      - 'zensical.toml'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -30,7 +30,7 @@ jobs:
       - run: pip install -r docs/requirements.txt
 
       - name: Build documentation
-        run: zensical build -f mkdocs.yml --clean --strict
+        run: zensical build -f zensical.toml --clean --strict
 
   deploy:
     needs: build
@@ -52,7 +52,7 @@ jobs:
 
       - run: pip install -r docs/requirements.txt
 
-      - run: zensical build -f mkdocs.yml --clean --strict
+      - run: zensical build -f zensical.toml --clean --strict
 
       - uses: actions/configure-pages@v5
 

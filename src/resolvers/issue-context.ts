@@ -15,7 +15,13 @@ resolver.define('getIssueTimerState', async () => {
   if (!config) {
     return { configured: false };
   }
-  return { configured: true, kimaiUrl: config.url };
+
+  return {
+    configured: true,
+    kimaiUrl: config.url,
+    defaultProjectId: config.defaultProjectId,
+    defaultActivityId: config.defaultActivityId,
+  };
 });
 
 resolver.define('startTimer', async (request) => {

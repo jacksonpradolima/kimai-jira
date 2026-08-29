@@ -51,7 +51,15 @@ export class ForgeJiraClient implements JiraClient {
         }),
       },
     );
-    return response.json() as Promise<JiraWorklog>;
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira worklog create failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
+
+    return (await response.json()) as JiraWorklog;
   }
 
   async updateWorklog(
@@ -71,14 +79,30 @@ export class ForgeJiraClient implements JiraClient {
         }),
       },
     );
-    return response.json() as Promise<JiraWorklog>;
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira worklog update failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
+
+    return (await response.json()) as JiraWorklog;
   }
 
   async getWorklog(issueIdOrKey: string, worklogId: string): Promise<JiraWorklog> {
     const response = await asApp().requestJira(
       route`/rest/api/3/issue/${issueIdOrKey}/worklog/${worklogId}`,
     );
-    return response.json() as Promise<JiraWorklog>;
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira worklog lookup failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
+
+    return (await response.json()) as JiraWorklog;
   }
 }
 
@@ -88,5 +112,9 @@ export class ForgeJiraClient implements JiraClient {
  */
 export function toJiraTimestamp(isoDate: string): string {
   const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError(`Invalid ISO-8601 date for Jira: ${isoDate}`);
+  }
+
   return date.toISOString().replace('Z', '+0000');
 }

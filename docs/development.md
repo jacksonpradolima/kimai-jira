@@ -66,17 +66,17 @@ See [Architecture](architecture.md#source-layout).
 ## Working on the documentation
 
 Documentation lives under `/docs` and is built with [Zensical](https://zensical.org/) from
-`mkdocs.yml`.
+`zensical.toml`.
 
 ```bash
 pip install -r docs/requirements.txt
-zensical serve -f mkdocs.yml
+zensical serve -f zensical.toml
 ```
 
 This serves the docs locally with live reload. To reproduce the CI check:
 
 ```bash
-zensical build -f mkdocs.yml --clean --strict
+zensical build -f zensical.toml --clean --strict
 ```
 
 The generated `site/` output is git-ignored and must never be committed.

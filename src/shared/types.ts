@@ -57,6 +57,7 @@ export interface CreateTimesheetInput {
   end?: string;
   project: number;
   activity: number;
+  user?: number;
   description?: string;
   billable?: boolean;
   tags?: string[];

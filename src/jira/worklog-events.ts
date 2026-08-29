@@ -35,6 +35,16 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     return;
   }
 
+  if (!event.issue?.key) {
+    logger.warn({
+      event: 'worklog.sync_skipped_missing_issue_key',
+      direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id,
+      result: 'failure',
+    });
+    return;
+  }
+
   const [config, apiToken, userMapping] = await Promise.all([
     getKimaiConfig(),
     getKimaiApiToken(),
@@ -65,7 +75,7 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
 
   await syncJiraWorklogToKimai(client, {
     jiraIssueId: event.worklog.issueId,
-    jiraIssueKey: event.issue?.key ?? event.worklog.issueId,
+    jiraIssueKey: event.issue.key,
     jiraWorklogId: event.worklog.id,
     authorAccountId: event.worklog.authorAccountId,
     kimaiUserId: userMapping.kimaiUserId,

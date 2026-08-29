@@ -27,15 +27,15 @@ describe('computeContentHash', () => {
 
 describe('shouldSkipSyncEvent', () => {
   it('does not skip when there is no existing mapping', () => {
-    expect(shouldSkipSyncEvent(undefined, { origin: 'jira', hash: 'xyz' })).toBe(false);
+    expect(shouldSkipSyncEvent(undefined, { hash: 'xyz' })).toBe(false);
   });
 
   it('skips a replayed event with the same content hash (idempotency)', () => {
-    expect(shouldSkipSyncEvent(baseMapping, { origin: 'jira', hash: 'abc123' })).toBe(true);
+    expect(shouldSkipSyncEvent(baseMapping, { hash: 'abc123' })).toBe(true);
   });
 
   it('does not skip when the content hash differs (a real change)', () => {
-    expect(shouldSkipSyncEvent(baseMapping, { origin: 'jira', hash: 'different' })).toBe(false);
+    expect(shouldSkipSyncEvent(baseMapping, { hash: 'different' })).toBe(false);
   });
 });
 
