@@ -1,9 +1,9 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
-  claimJiraWorklogCreation: jest.fn().mockResolvedValue(true),
+  claimJiraWorklogSync: jest.fn().mockResolvedValue(true),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
-  releaseJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
+  releaseJiraWorklogSync: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { KimaiClient } from '../../src/kimai/client';
@@ -57,15 +57,16 @@ describe('syncJiraWorklogToKimai', () => {
     expect(mapping?.jiraWorklogId).toBe('100271');
   });
 
-  it('does not create a duplicate while another delivery owns the creation claim', async () => {
-    (mappingsStorage.claimJiraWorklogCreation as jest.Mock).mockResolvedValueOnce(false);
+  it('waits for an existing sync claim before applying the worklog', async () => {
+    (mappingsStorage.claimJiraWorklogSync as jest.Mock).mockResolvedValueOnce(false);
 
     const client = buildClient();
     const mapping = await syncJiraWorklogToKimai(client, baseChange);
 
-    expect(mapping).toBeUndefined();
-    expect(client.createTimesheet).not.toHaveBeenCalled();
-    expect(mappingsStorage.releaseJiraWorklogCreation).not.toHaveBeenCalled();
+    expect(mappingsStorage.claimJiraWorklogSync).toHaveBeenCalledTimes(2);
+    expect(client.createTimesheet).toHaveBeenCalledTimes(1);
+    expect(mapping?.kimaiTimesheetId).toBe(8291);
+    expect(mappingsStorage.releaseJiraWorklogSync).toHaveBeenCalledWith('100271');
   });
 
   it('skips self-generated events to prevent sync loops', async () => {
@@ -108,7 +109,7 @@ describe('syncJiraWorklogToKimai', () => {
       origin: 'jira',
       lastSyncedAt: '2026-08-27T09:00:00.000Z',
       lastHash: computeContentHash({
-        started: change.started,
+        started: '2026-08-27T10:00:00.000Z',
         duration: change.timeSpentSeconds,
         comment: change.comment,
       }),

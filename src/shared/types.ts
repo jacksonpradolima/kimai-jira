@@ -13,6 +13,10 @@ export interface WorklogMapping {
 
   lastSyncedAt: string;
   lastHash?: string;
+  pendingJiraWorklogDeletion?: {
+    jiraIssueKey: string;
+    jiraWorklogId: string;
+  };
 }
 
 export interface UserMapping {

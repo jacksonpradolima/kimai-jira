@@ -37,9 +37,17 @@ export async function saveWorklogMapping(mapping: WorklogMapping): Promise<void>
  * write prevents concurrent event deliveries from creating duplicate entries.
  */
 export async function claimJiraWorklogCreation(jiraWorklogId: string): Promise<boolean> {
+  return claimReservation(byJiraWorklogReservationKey(jiraWorklogId));
+}
+
+export async function claimJiraWorklogSync(jiraWorklogId: string): Promise<boolean> {
+  return claimReservation(byJiraWorklogReservationKey(jiraWorklogId));
+}
+
+async function claimReservation(key: string): Promise<boolean> {
   try {
     await kvs.set(
-      byJiraWorklogReservationKey(jiraWorklogId),
+      key,
       { claimedAt: new Date().toISOString() },
       {
         keyPolicy: 'FAIL_IF_EXISTS',
@@ -59,23 +67,12 @@ export async function releaseJiraWorklogCreation(jiraWorklogId: string): Promise
   await kvs.delete(byJiraWorklogReservationKey(jiraWorklogId));
 }
 
+export async function releaseJiraWorklogSync(jiraWorklogId: string): Promise<void> {
+  await kvs.delete(byJiraWorklogReservationKey(jiraWorklogId));
+}
+
 export async function claimKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<boolean> {
-  try {
-    await kvs.set(
-      byKimaiTimesheetReservationKey(kimaiTimesheetId),
-      { claimedAt: new Date().toISOString() },
-      {
-        keyPolicy: 'FAIL_IF_EXISTS',
-        ttl: { value: 5, unit: 'MINUTES' },
-      },
-    );
-    return true;
-  } catch (error) {
-    if (error instanceof ForgeKvsAPIError && error.responseDetails.status === 409) {
-      return false;
-    }
-    throw error;
-  }
+  return claimReservation(byKimaiTimesheetReservationKey(kimaiTimesheetId));
 }
 
 export async function releaseKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<void> {

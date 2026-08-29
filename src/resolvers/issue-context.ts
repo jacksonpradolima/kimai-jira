@@ -79,13 +79,22 @@ resolver.define('startTimer', async (request) => {
 resolver.define('stopTimer', async (request) => {
   const config = await getKimaiConfig();
   const apiToken = await getKimaiApiToken();
+  const accountId = request.context.accountId as string | undefined;
+  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
   if (!config || !apiToken) {
     return { ok: false, error: 'Kimai is not configured yet.' };
+  }
+  if (!userMapping?.enabled) {
+    return { ok: false, error: 'No enabled Kimai user mapping exists for this Jira user.' };
   }
 
   try {
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
     const { timesheetId } = request.payload as { timesheetId: number };
+    const activeTimesheet = await client.getTimesheet(timesheetId);
+    if (activeTimesheet.user !== userMapping.kimaiUserId) {
+      return { ok: false, error: 'You can only stop your own Kimai timer.' };
+    }
     const timesheet = await client.stopTimer(timesheetId);
     return { ok: true, timesheet };
   } catch (error) {

@@ -1,7 +1,12 @@
 import { JiraClient } from '../jira/client';
 import { WorklogMapping } from '../shared/types';
 import { logger } from '../shared/logger';
-import { computeContentHash, mergeMapping, shouldSkipSyncEvent } from './idempotency';
+import {
+  computeContentHash,
+  mergeMapping,
+  normalizeSyncTimestamp,
+  shouldSkipSyncEvent,
+} from './idempotency';
 import {
   claimKimaiTimesheetCreation,
   getMappingByKimaiTimesheetId,
@@ -26,21 +31,28 @@ export async function syncKimaiTimesheetToJira(
   client: JiraClient,
   change: KimaiTimesheetChange,
 ): Promise<WorklogMapping | undefined> {
-  const existing = await getMappingByKimaiTimesheetId(change.kimaiTimesheetId);
-  const beginMs = new Date(change.begin).getTime();
-  const endMs = new Date(change.end).getTime();
+  let existing = await getMappingByKimaiTimesheetId(change.kimaiTimesheetId);
+  const begin = normalizeSyncTimestamp(change.begin);
+  const end = normalizeSyncTimestamp(change.end);
+  const beginMs = new Date(begin).getTime();
+  const endMs = new Date(end).getTime();
 
-  if (Number.isNaN(beginMs) || Number.isNaN(endMs)) {
-    throw new RangeError(
-      `Invalid Kimai timesheet timestamps for Jira sync: begin=${change.begin}, end=${change.end}`,
-    );
+  if (existing?.pendingJiraWorklogDeletion) {
+    const pendingDeletion = existing.pendingJiraWorklogDeletion;
+    await client.deleteWorklog(pendingDeletion.jiraIssueKey, pendingDeletion.jiraWorklogId);
+    existing = mergeMapping(existing, {
+      jiraWorklogId: existing.jiraWorklogId,
+      kimaiTimesheetId: existing.kimaiTimesheetId,
+      pendingJiraWorklogDeletion: undefined,
+    });
+    await recordMapping(existing);
   }
 
   const timeSpentSeconds = Math.max(0, Math.round((endMs - beginMs) / 1000));
   const comment = normalizeKimaiDescription(change.description, change.jiraIssueKey);
 
   const hash = computeContentHash({
-    started: change.begin,
+    started: begin,
     duration: timeSpentSeconds,
     comment,
   });
@@ -76,31 +88,47 @@ export async function syncKimaiTimesheetToJira(
   try {
     const worklog = existing && !issueChanged
       ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
-          started: change.begin,
+          started: begin,
           timeSpentSeconds,
           comment,
         })
       : await client.createWorklog({
           issueIdOrKey: change.jiraIssueKey,
-          started: change.begin,
+          started: begin,
           timeSpentSeconds,
           comment,
         });
 
-    if (issueChanged && existing) {
-      await client.deleteWorklog(existing.jiraIssueKey, existing.jiraWorklogId);
-    }
-
-    const mapping = mergeMapping(existing, {
+    const pendingJiraWorklogDeletion = issueChanged && existing
+      ? {
+          jiraIssueKey: existing.jiraIssueKey,
+          jiraWorklogId: existing.jiraWorklogId,
+        }
+      : undefined;
+    let mapping = mergeMapping(existing, {
       jiraIssueId: worklog.issueId,
       jiraIssueKey: change.jiraIssueKey,
       jiraWorklogId: worklog.id,
       kimaiTimesheetId: change.kimaiTimesheetId,
       origin: 'kimai',
       lastHash: hash,
+      pendingJiraWorklogDeletion,
     });
 
     await recordMapping(mapping);
+
+    if (pendingJiraWorklogDeletion) {
+      await client.deleteWorklog(
+        pendingJiraWorklogDeletion.jiraIssueKey,
+        pendingJiraWorklogDeletion.jiraWorklogId,
+      );
+      mapping = mergeMapping(mapping, {
+        jiraWorklogId: mapping.jiraWorklogId,
+        kimaiTimesheetId: mapping.kimaiTimesheetId,
+        pendingJiraWorklogDeletion: undefined,
+      });
+      await recordMapping(mapping);
+    }
 
     logger.info({
       event: existing ? 'timesheet.updated' : 'timesheet.created',

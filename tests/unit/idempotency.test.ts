@@ -1,4 +1,9 @@
-import { computeContentHash, mergeMapping, shouldSkipSyncEvent } from '../../src/sync/idempotency';
+import {
+  computeContentHash,
+  mergeMapping,
+  normalizeSyncTimestamp,
+  shouldSkipSyncEvent,
+} from '../../src/sync/idempotency';
 import { WorklogMapping } from '../../src/shared/types';
 
 const baseMapping: WorklogMapping = {
@@ -22,6 +27,13 @@ describe('computeContentHash', () => {
     const a = computeContentHash({ started: '2026-01-01', duration: 60 });
     const b = computeContentHash({ started: '2026-01-01', duration: 120 });
     expect(a).not.toBe(b);
+  });
+});
+
+describe('normalizeSyncTimestamp', () => {
+  it('uses one ISO representation for equivalent timestamps', () => {
+    expect(normalizeSyncTimestamp('2026-08-27T10:00:00Z')).toBe('2026-08-27T10:00:00.000Z');
+    expect(normalizeSyncTimestamp('2026-08-27T07:00:00-03:00')).toBe('2026-08-27T10:00:00.000Z');
   });
 });
 

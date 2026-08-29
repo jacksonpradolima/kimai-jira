@@ -35,6 +35,15 @@ export function computeContentHash(fields: Record<string, unknown>): string {
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
+export function normalizeSyncTimestamp(value: string): string {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) {
+    throw new RangeError(`Invalid sync timestamp: ${value}`);
+  }
+
+  return timestamp.toISOString();
+}
+
 export function mergeMapping(
   existing: WorklogMapping | undefined,
   updates: Partial<WorklogMapping> & Pick<WorklogMapping, 'jiraWorklogId' | 'kimaiTimesheetId'>,
@@ -47,5 +56,11 @@ export function mergeMapping(
     origin: updates.origin ?? existing?.origin ?? 'jira',
     lastSyncedAt: updates.lastSyncedAt ?? new Date().toISOString(),
     lastHash: updates.lastHash ?? existing?.lastHash,
+    pendingJiraWorklogDeletion: Object.prototype.hasOwnProperty.call(
+      updates,
+      'pendingJiraWorklogDeletion',
+    )
+      ? updates.pendingJiraWorklogDeletion
+      : existing?.pendingJiraWorklogDeletion,
   };
 }

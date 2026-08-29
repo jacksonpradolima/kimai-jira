@@ -1,9 +1,11 @@
 import {
   claimJiraWorklogCreation,
+  claimJiraWorklogSync,
   claimKimaiTimesheetCreation,
   getMappingByJiraWorklogId,
   getMappingByKimaiTimesheetId,
   releaseJiraWorklogCreation,
+  releaseJiraWorklogSync,
   releaseKimaiTimesheetCreation,
   saveWorklogMapping,
 } from '../storage/mappings';
@@ -11,10 +13,12 @@ import { WorklogMapping } from '../shared/types';
 
 export {
   claimJiraWorklogCreation,
+  claimJiraWorklogSync,
   claimKimaiTimesheetCreation,
   getMappingByJiraWorklogId,
   getMappingByKimaiTimesheetId,
   releaseJiraWorklogCreation,
+  releaseJiraWorklogSync,
   releaseKimaiTimesheetCreation,
 };
 

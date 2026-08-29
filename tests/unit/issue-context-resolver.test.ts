@@ -7,7 +7,9 @@ const mockGetKimaiConfig = jest.fn();
 const mockGetKimaiApiToken = jest.fn();
 const mockGetUserMapping = jest.fn();
 const mockGetActiveTimesheets = jest.fn();
+const mockGetTimesheet = jest.fn();
 const mockStartTimer = jest.fn();
+const mockStopTimer = jest.fn();
 
 mockResolver.define.mockImplementation((key: string, callback) => {
   mockDefinitions[key] = callback;
@@ -24,7 +26,9 @@ jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping
 jest.mock('../../src/kimai/client', () => ({
   HttpKimaiClient: jest.fn(() => ({
     getActiveTimesheets: mockGetActiveTimesheets,
+    getTimesheet: mockGetTimesheet,
     startTimer: mockStartTimer,
+    stopTimer: mockStopTimer,
   })),
 }));
 
@@ -37,7 +41,9 @@ describe('issue context resolver', () => {
     mockGetKimaiApiToken.mockResolvedValue('token');
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
     mockGetActiveTimesheets.mockResolvedValue([]);
+    mockGetTimesheet.mockResolvedValue({ id: 8291, user: 42 });
     mockStartTimer.mockResolvedValue({ id: 8291 });
+    mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
   });
 
   it('starts issue timers for the invoking Jira user mapping', async () => {
@@ -71,5 +77,30 @@ describe('issue context resolver', () => {
 
     expect(mockGetActiveTimesheets).toHaveBeenCalledWith(42);
     expect(result).toEqual(expect.objectContaining({ runningTimesheet: { id: 8291 } }));
+  });
+
+  it('stops only a timer owned by the invoking Jira user mapping', async () => {
+    const stopTimer = (handler as unknown as typeof mockDefinitions).stopTimer;
+    const result = await stopTimer({
+      context: { accountId: '712020:abc123' },
+      payload: { timesheetId: 8291 },
+    });
+
+    expect(mockGetTimesheet).toHaveBeenCalledWith(8291);
+    expect(mockStopTimer).toHaveBeenCalledWith(8291);
+    expect(result).toEqual({ ok: true, timesheet: { id: 8291, user: 42 } });
+  });
+
+  it('refuses to stop a timer owned by another Kimai user', async () => {
+    mockGetTimesheet.mockResolvedValue({ id: 8291, user: 99 });
+    const stopTimer = (handler as unknown as typeof mockDefinitions).stopTimer;
+
+    const result = await stopTimer({
+      context: { accountId: '712020:abc123' },
+      payload: { timesheetId: 8291 },
+    });
+
+    expect(mockStopTimer).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: 'You can only stop your own Kimai timer.' });
   });
 });

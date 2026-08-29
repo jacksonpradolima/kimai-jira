@@ -4,14 +4,32 @@ import { logger } from '../shared/logger';
 import {
   computeContentHash,
   mergeMapping,
+  normalizeSyncTimestamp,
   shouldSkipSyncEvent,
 } from './idempotency';
 import {
-  claimJiraWorklogCreation,
+  claimJiraWorklogSync,
   getMappingByJiraWorklogId,
   recordMapping,
-  releaseJiraWorklogCreation,
+  releaseJiraWorklogSync,
 } from './mapping';
+
+const SYNC_CLAIM_RETRY_DELAY_MS = 25;
+const SYNC_CLAIM_RETRY_COUNT = 40;
+
+async function claimJiraWorklogSyncWithRetry(jiraWorklogId: string): Promise<boolean> {
+  for (let attempt = 0; attempt < SYNC_CLAIM_RETRY_COUNT; attempt += 1) {
+    if (await claimJiraWorklogSync(jiraWorklogId)) {
+      return true;
+    }
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, SYNC_CLAIM_RETRY_DELAY_MS);
+    });
+  }
+
+  return false;
+}
 
 export interface JiraWorklogChange {
   jiraIssueId: string;
@@ -47,56 +65,49 @@ export async function syncJiraWorklogToKimai(
     return undefined;
   }
 
-  const existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
-  const startedMs = new Date(change.started).getTime();
-  if (Number.isNaN(startedMs)) {
-    throw new RangeError(`Invalid Jira worklog timestamp: ${change.started}`);
-  }
-
-  const hash = computeContentHash({
-    started: change.started,
-    duration: change.timeSpentSeconds,
-    comment: change.comment ?? '',
-  });
-
-  if (shouldSkipSyncEvent(existing, { hash })) {
+  const syncClaimed = await claimJiraWorklogSyncWithRetry(change.jiraWorklogId);
+  if (!syncClaimed) {
     logger.info({
-      event: 'worklog.duplicate_ignored',
+      event: 'worklog.sync_in_progress',
       direction: 'jira-to-kimai',
       jiraIssueKey: change.jiraIssueKey,
       jiraWorklogId: change.jiraWorklogId,
       result: 'success',
     });
-    return existing;
+    return undefined;
   }
 
-  const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
-  const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
+  try {
+    const existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
+    const started = normalizeSyncTimestamp(change.started);
+    const startedMs = new Date(started).getTime();
+    const hash = computeContentHash({
+      started,
+      duration: change.timeSpentSeconds,
+      comment: change.comment ?? '',
+    });
 
-  let creationClaimed = false;
-  if (!existing) {
-    creationClaimed = await claimJiraWorklogCreation(change.jiraWorklogId);
-    if (!creationClaimed) {
+    if (shouldSkipSyncEvent(existing, { hash })) {
       logger.info({
-        event: 'worklog.create_in_progress',
+        event: 'worklog.duplicate_ignored',
         direction: 'jira-to-kimai',
         jiraIssueKey: change.jiraIssueKey,
         jiraWorklogId: change.jiraWorklogId,
         result: 'success',
       });
-      return undefined;
+      return existing;
     }
-  }
 
-  try {
+    const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
+    const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
     const timesheet = existing
       ? await client.updateTimesheet(existing.kimaiTimesheetId, {
-          begin: change.started,
+          begin: started,
           end: endIso,
           description,
         })
       : await client.createTimesheet({
-          begin: change.started,
+          begin: started,
           end: endIso,
           description,
           project: change.kimaiProjectId,
@@ -126,8 +137,6 @@ export async function syncJiraWorklogToKimai(
 
     return mapping;
   } finally {
-    if (creationClaimed) {
-      await releaseJiraWorklogCreation(change.jiraWorklogId);
-    }
+    await releaseJiraWorklogSync(change.jiraWorklogId);
   }
 }

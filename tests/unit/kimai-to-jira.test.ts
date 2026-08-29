@@ -179,4 +179,57 @@ describe('syncKimaiTimesheetToJira', () => {
 
     expect(client.deleteWorklog).not.toHaveBeenCalled();
   });
+
+  it('persists replacement cleanup before deleting the obsolete worklog', async () => {
+    const oldMapping = {
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai' as const,
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: 'stale-hash',
+    };
+    const replacementHash = computeContentHash({
+      started: baseChange.begin,
+      duration: 3600,
+      comment: '1-1 Meetings',
+    });
+    const pendingCleanupMapping = {
+      ...oldMapping,
+      jiraIssueId: '10002',
+      jiraIssueKey: 'BA-4',
+      jiraWorklogId: '100272',
+      lastHash: replacementHash,
+      pendingJiraWorklogDeletion: { jiraIssueKey: 'BA-3', jiraWorklogId: '100271' },
+    };
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock)
+      .mockResolvedValueOnce(oldMapping)
+      .mockResolvedValueOnce(pendingCleanupMapping);
+    const deleteWorklog = jest.fn()
+      .mockRejectedValueOnce(new Error('Jira unavailable'))
+      .mockResolvedValueOnce(undefined);
+    const client = buildClient({
+      createWorklog: jest.fn().mockResolvedValue({
+        id: '100272',
+        issueId: '10002',
+        started: baseChange.begin,
+        timeSpentSeconds: 3600,
+      }),
+      deleteWorklog,
+    });
+    const replacement = { ...baseChange, jiraIssueKey: 'BA-4', description: '[BA-4] 1-1 Meetings' };
+
+    await expect(syncKimaiTimesheetToJira(client, replacement)).rejects.toThrow('Jira unavailable');
+    await syncKimaiTimesheetToJira(client, replacement);
+
+    expect(client.createWorklog).toHaveBeenCalledTimes(1);
+    expect(deleteWorklog).toHaveBeenCalledTimes(2);
+    expect(mappingsStorage.saveWorklogMapping).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jiraWorklogId: '100272',
+        pendingJiraWorklogDeletion: { jiraIssueKey: 'BA-3', jiraWorklogId: '100271' },
+      }),
+    );
+  });
 });
