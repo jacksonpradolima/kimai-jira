@@ -27,8 +27,8 @@ resolver.define('saveConnectionSettings', async (request) => {
   const payload = request.payload as {
     url?: string;
     apiToken?: string;
-    defaultProjectId?: number | string;
-    defaultActivityId?: number | string;
+    defaultProjectId?: number | string | null;
+    defaultActivityId?: number | string | null;
   };
 
   const existing = await getKimaiConfig();
@@ -39,8 +39,8 @@ resolver.define('saveConnectionSettings', async (request) => {
   const config: KimaiConfig = {
     url,
     hasToken: Boolean(payload.apiToken) || Boolean(existing?.hasToken),
-    defaultProjectId: coerceId(payload.defaultProjectId) ?? existing?.defaultProjectId,
-    defaultActivityId: coerceId(payload.defaultActivityId) ?? existing?.defaultActivityId,
+    defaultProjectId: resolveDefaultId(payload, 'defaultProjectId', existing?.defaultProjectId),
+    defaultActivityId: resolveDefaultId(payload, 'defaultActivityId', existing?.defaultActivityId),
   };
 
   if (payload.apiToken) {
@@ -102,13 +102,26 @@ function generateSecret(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-function coerceId(value: number | string | undefined): number | undefined {
+function coerceId(value: number | string | null | undefined): number | undefined {
   if (value === undefined || value === null || value === '') {
     return undefined;
   }
 
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function resolveDefaultId(
+  payload: {
+    defaultProjectId?: number | string | null;
+    defaultActivityId?: number | string | null;
+  },
+  key: 'defaultProjectId' | 'defaultActivityId',
+  existingValue: number | undefined,
+): number | undefined {
+  return Object.prototype.hasOwnProperty.call(payload, key)
+    ? coerceId(payload[key])
+    : existingValue;
 }
 
 function normalizeKimaiUrl(value: string | undefined): string | undefined {

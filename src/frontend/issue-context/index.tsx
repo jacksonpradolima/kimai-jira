@@ -114,7 +114,7 @@ const App = () => {
   };
 
   if (!state) {
-    return <Text>Loading Kimai...</Text>;
+    return <Text>{error ?? 'Loading Kimai...'}</Text>;
   }
 
   if (!state.configured) {

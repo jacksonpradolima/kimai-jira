@@ -46,4 +46,26 @@ describe('configuration resolver', () => {
     expect(result).toEqual({ ok: false, error: 'A valid Kimai URL is required.' });
     expect(mockSetKimaiConfig).not.toHaveBeenCalled();
   });
+
+  it('clears stored defaults when the payload explicitly supplies null', async () => {
+    mockGetKimaiConfig.mockResolvedValue({
+      url: 'https://kimai.example.test',
+      hasToken: true,
+      defaultProjectId: 1,
+      defaultActivityId: 2,
+    });
+    const saveConnectionSettings = (handler as unknown as typeof mockDefinitions).saveConnectionSettings;
+
+    await saveConnectionSettings({
+      payload: {
+        defaultProjectId: null,
+        defaultActivityId: null,
+      },
+    });
+
+    expect(mockSetKimaiConfig).toHaveBeenCalledWith(expect.objectContaining({
+      defaultProjectId: undefined,
+      defaultActivityId: undefined,
+    }));
+  });
 });

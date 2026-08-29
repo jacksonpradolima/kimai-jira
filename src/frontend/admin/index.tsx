@@ -63,8 +63,8 @@ const App = () => {
       const connectionResult = (await invoke('saveConnectionSettings', {
         url,
         apiToken: apiToken || undefined,
-        defaultProjectId: defaultProjectId === '' ? undefined : Number(defaultProjectId),
-        defaultActivityId: defaultActivityId === '' ? undefined : Number(defaultActivityId),
+        defaultProjectId: defaultProjectId === '' ? null : Number(defaultProjectId),
+        defaultActivityId: defaultActivityId === '' ? null : Number(defaultActivityId),
       })) as { ok?: boolean; error?: string };
 
       if (!connectionResult.ok) {
@@ -128,7 +128,7 @@ const App = () => {
   };
 
   if (!state) {
-    return <Text>Loading configuration...</Text>;
+    return <Text>{error ?? 'Loading configuration...'}</Text>;
   }
 
   return (
