@@ -60,12 +60,16 @@ const App = () => {
 
   const onSave = async () => {
     try {
-      await invoke('saveConnectionSettings', {
+      const connectionResult = (await invoke('saveConnectionSettings', {
         url,
         apiToken: apiToken || undefined,
         defaultProjectId: defaultProjectId === '' ? undefined : Number(defaultProjectId),
         defaultActivityId: defaultActivityId === '' ? undefined : Number(defaultActivityId),
-      });
+      })) as { ok?: boolean; error?: string };
+
+      if (!connectionResult.ok) {
+        throw new Error(connectionResult.error ?? 'Unable to save the connection settings.');
+      }
 
       if (jiraAccountId || kimaiUserId) {
         const mappingResult = (await invoke('saveUserMapping', {

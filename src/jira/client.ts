@@ -171,8 +171,12 @@ export function toJiraTimestamp(isoDate: string): string {
 }
 
 export function toJiraAdfDocument(comment: string | undefined): JiraAdfDocument | undefined {
-  if (comment === undefined || comment === '') {
+  if (comment === undefined) {
     return undefined;
+  }
+
+  if (comment === '') {
+    return { type: 'doc', version: 1, content: [] };
   }
 
   return {

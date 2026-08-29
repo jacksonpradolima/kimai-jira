@@ -2,6 +2,7 @@ const mockGetIssueKey = jest.fn();
 const mockGetKimaiConfig = jest.fn();
 const mockGetKimaiApiToken = jest.fn();
 const mockGetUserMapping = jest.fn();
+const mockGetMappingByJiraWorklogId = jest.fn();
 const mockSyncJiraWorklogToKimai = jest.fn();
 
 jest.mock('../../src/jira/client', () => ({
@@ -12,6 +13,9 @@ jest.mock('../../src/storage/secrets', () => ({ getKimaiApiToken: mockGetKimaiAp
 jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping }));
 jest.mock('../../src/sync/jira-to-kimai', () => ({
   syncJiraWorklogToKimai: mockSyncJiraWorklogToKimai,
+}));
+jest.mock('../../src/sync/mapping', () => ({
+  getMappingByJiraWorklogId: mockGetMappingByJiraWorklogId,
 }));
 
 import { handler, jiraCommentToText } from '../../src/jira/worklog-events';
@@ -28,6 +32,7 @@ describe('Jira worklog event handler', () => {
     });
     mockGetKimaiApiToken.mockResolvedValue('token');
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
+    mockGetMappingByJiraWorklogId.mockResolvedValue(undefined);
   });
 
   it('uses the Forge event author and resolves the issue key from issueId', async () => {
@@ -75,5 +80,39 @@ describe('Jira worklog event handler', () => {
         ],
       }),
     ).toBe('First\nSecond\nThird');
+  });
+
+  it('updates an existing Kimai mapping even when Jira reports the app as the author', async () => {
+    mockGetUserMapping.mockResolvedValue(undefined);
+    mockGetMappingByJiraWorklogId.mockResolvedValue({
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai',
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+    });
+
+    await handler({
+      eventType: 'avi:jira:updated:worklog',
+      issue: { key: 'BA-3' },
+      worklog: {
+        id: '100271',
+        issueId: '10001',
+        author: { accountId: 'forge-app-account' },
+        started: '2026-08-27T10:00:00.000Z',
+        timeSpentSeconds: 3600,
+        comment: 'Updated by Jira administrator',
+      },
+    });
+
+    expect(mockSyncJiraWorklogToKimai).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        jiraWorklogId: '100271',
+        kimaiUserId: undefined,
+        comment: 'Updated by Jira administrator',
+      }),
+    );
   });
 });

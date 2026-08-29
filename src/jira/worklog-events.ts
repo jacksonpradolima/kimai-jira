@@ -4,6 +4,7 @@ import { getKimaiConfig } from '../storage/config';
 import { getKimaiApiToken } from '../storage/secrets';
 import { getUserMapping } from '../storage/users';
 import { syncJiraWorklogToKimai } from '../sync/jira-to-kimai';
+import { getMappingByJiraWorklogId } from '../sync/mapping';
 import { logger } from '../shared/logger';
 
 interface JiraWorklogEvent {
@@ -39,24 +40,14 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
 
   const jiraIssueKey = event.issue?.key ?? (await new ForgeJiraClient().getIssueKey(event.worklog.issueId));
   const authorAccountId = event.worklog.author?.accountId ?? event.worklog.authorAccountId;
-
-  if (!authorAccountId) {
-    logger.warn({
-      event: 'worklog.sync_skipped_missing_author',
-      direction: 'jira-to-kimai',
-      jiraWorklogId: event.worklog.id,
-      result: 'failure',
-    });
-    return;
-  }
-
-  const [config, apiToken, userMapping] = await Promise.all([
+  const [config, apiToken, existingMapping, userMapping] = await Promise.all([
     getKimaiConfig(),
     getKimaiApiToken(),
-    getUserMapping(authorAccountId),
+    getMappingByJiraWorklogId(event.worklog.id),
+    authorAccountId ? getUserMapping(authorAccountId) : Promise.resolve(undefined),
   ]);
 
-  if (!config || !apiToken || !userMapping?.enabled) {
+  if (!config || !apiToken) {
     logger.warn({
       event: 'worklog.sync_skipped_unconfigured',
       direction: 'jira-to-kimai',
@@ -66,7 +57,27 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     return;
   }
 
-  if (!config.defaultProjectId || !config.defaultActivityId) {
+  if (!existingMapping && !authorAccountId) {
+    logger.warn({
+      event: 'worklog.sync_skipped_missing_author',
+      direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id,
+      result: 'failure',
+    });
+    return;
+  }
+
+  if (!existingMapping && !userMapping?.enabled) {
+    logger.warn({
+      event: 'worklog.sync_skipped_unconfigured',
+      direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id,
+      result: 'failure',
+    });
+    return;
+  }
+
+  if (!existingMapping && (!config.defaultProjectId || !config.defaultActivityId)) {
     logger.warn({
       event: 'worklog.sync_skipped_missing_defaults',
       direction: 'jira-to-kimai',
@@ -83,7 +94,7 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     jiraIssueKey,
     jiraWorklogId: event.worklog.id,
     authorAccountId,
-    kimaiUserId: userMapping.kimaiUserId,
+    kimaiUserId: userMapping?.kimaiUserId,
     kimaiProjectId: config.defaultProjectId,
     kimaiActivityId: config.defaultActivityId,
     started: event.worklog.started,

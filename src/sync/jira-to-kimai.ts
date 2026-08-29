@@ -38,10 +38,10 @@ export interface JiraWorklogChange {
   jiraIssueId: string;
   jiraIssueKey: string;
   jiraWorklogId: string;
-  authorAccountId: string;
-  kimaiUserId: number;
-  kimaiProjectId: number;
-  kimaiActivityId: number;
+  authorAccountId?: string;
+  kimaiUserId?: number;
+  kimaiProjectId?: number;
+  kimaiActivityId?: number;
   started: string;
   timeSpentSeconds: number;
   comment?: string;
@@ -110,6 +110,14 @@ export async function syncJiraWorklogToKimai(
     const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
     const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
     const createdTimesheet = !existing;
+    if (
+      createdTimesheet
+      && (change.kimaiUserId === undefined
+        || change.kimaiProjectId === undefined
+        || change.kimaiActivityId === undefined)
+    ) {
+      throw new Error('Kimai user, project, and activity are required to create a timesheet.');
+    }
     const timesheet = existing
       ? await client.updateTimesheet(existing.kimaiTimesheetId, {
           begin: started,
@@ -120,9 +128,9 @@ export async function syncJiraWorklogToKimai(
           begin: started,
           end: endIso,
           description,
-          project: change.kimaiProjectId,
-          activity: change.kimaiActivityId,
-          user: change.kimaiUserId,
+          project: change.kimaiProjectId as number,
+          activity: change.kimaiActivityId as number,
+          user: change.kimaiUserId as number,
         });
 
     const mapping = mergeMapping(existing, {

@@ -55,4 +55,17 @@ describe('ForgeJiraClient', () => {
 
     await expect(new ForgeJiraClient().getIssueKey('10001')).resolves.toBe('BA-3');
   });
+
+  it('sends an empty ADF document when an update clears a worklog comment', async () => {
+    mockRequestJira.mockResolvedValue(
+      successfulResponse({ id: '100271', issueId: '10001', started: '', timeSpentSeconds: 60 }),
+    );
+
+    await new ForgeJiraClient().updateWorklog('BA-3', '100271', { comment: '' });
+
+    const request = mockRequestJira.mock.calls[0][1] as { body: string };
+    expect(JSON.parse(request.body)).toMatchObject({
+      comment: { type: 'doc', version: 1, content: [] },
+    });
+  });
 });
