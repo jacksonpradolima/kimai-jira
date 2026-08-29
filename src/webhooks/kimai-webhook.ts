@@ -45,7 +45,11 @@ export async function handler(request: WebTriggerRequest): Promise<WebTriggerRes
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (error) {
-    logger.error({ event: 'webhook.processing_failed', result: 'failure' });
+    logger.error({
+      event: 'webhook.processing_failed',
+      error: toSafeUserMessage(error),
+      result: 'failure',
+    });
     return { statusCode: 500, body: JSON.stringify({ error: toSafeUserMessage(error) }) };
   }
 }

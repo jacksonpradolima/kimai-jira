@@ -23,6 +23,17 @@ describe('resolveIssueKey', () => {
     ).toBe('BA-3');
   });
 
+  it('parses issue keys from single-letter Jira projects', () => {
+    expect(
+      resolveIssueKey({
+        id: 1,
+        begin: '2026-08-27T10:00:00Z',
+        end: null,
+        description: '[A-1] Single-letter project',
+      }),
+    ).toBe('A-1');
+  });
+
   it('returns undefined when no issue key can be resolved', () => {
     expect(
       resolveIssueKey({

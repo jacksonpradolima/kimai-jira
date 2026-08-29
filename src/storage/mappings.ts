@@ -22,6 +22,10 @@ function pendingJiraWorklogCreationKey(kimaiTimesheetId: number): string {
   return `worklog:pending-jira-creation:${kimaiTimesheetId}`;
 }
 
+function pendingKimaiTimesheetCreationKey(jiraWorklogId: string): string {
+  return `worklog:pending-kimai-creation:${jiraWorklogId}`;
+}
+
 /**
  * Persists a worklog <-> timesheet mapping, indexed from both sides so it
  * can be looked up regardless of which system triggered the sync.
@@ -109,6 +113,23 @@ export async function getPendingJiraWorklogCreation(
 
 export async function deletePendingJiraWorklogCreation(kimaiTimesheetId: number): Promise<void> {
   await kvs.delete(pendingJiraWorklogCreationKey(kimaiTimesheetId));
+}
+
+export async function savePendingKimaiTimesheetCreation(
+  jiraWorklogId: string,
+  mapping: WorklogMapping,
+): Promise<void> {
+  await kvs.set(pendingKimaiTimesheetCreationKey(jiraWorklogId), mapping);
+}
+
+export async function getPendingKimaiTimesheetCreation(
+  jiraWorklogId: string,
+): Promise<WorklogMapping | undefined> {
+  return kvs.get<WorklogMapping>(pendingKimaiTimesheetCreationKey(jiraWorklogId));
+}
+
+export async function deletePendingKimaiTimesheetCreation(jiraWorklogId: string): Promise<void> {
+  await kvs.delete(pendingKimaiTimesheetCreationKey(jiraWorklogId));
 }
 
 export async function getMappingByJiraWorklogId(

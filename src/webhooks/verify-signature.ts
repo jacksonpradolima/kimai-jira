@@ -17,11 +17,16 @@ export function verifyWebhookSignature(
     return false;
   }
 
-  const providedSignature = signatureHeader.startsWith('sha256=')
-    ? signatureHeader.slice('sha256='.length)
-    : signatureHeader;
+  const normalizedHeader = signatureHeader.trim();
+  const providedSignature = normalizedHeader.toLowerCase().startsWith('sha256=')
+    ? normalizedHeader.slice('sha256='.length)
+    : normalizedHeader;
 
   const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+  if (!/^[a-f0-9]{64}$/i.test(providedSignature)) {
+    return false;
+  }
 
   const expectedBuffer = Buffer.from(expectedSignature, 'hex');
   const providedBuffer = Buffer.from(providedSignature, 'hex');

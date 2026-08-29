@@ -1,9 +1,12 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
   claimJiraWorklogSync: jest.fn().mockResolvedValue(true),
+  deletePendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
+  getPendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
   releaseJiraWorklogSync: jest.fn().mockResolvedValue(undefined),
+  savePendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { KimaiClient } from '../../src/kimai/client';
@@ -43,6 +46,13 @@ const baseChange = {
 describe('syncJiraWorklogToKimai', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (mappingsStorage.claimJiraWorklogSync as jest.Mock).mockReset().mockResolvedValue(true);
+    (mappingsStorage.deletePendingKimaiTimesheetCreation as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (mappingsStorage.getMappingByJiraWorklogId as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (mappingsStorage.getPendingKimaiTimesheetCreation as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (mappingsStorage.releaseJiraWorklogSync as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (mappingsStorage.savePendingKimaiTimesheetCreation as jest.Mock).mockReset().mockResolvedValue(undefined);
+    (mappingsStorage.saveWorklogMapping as jest.Mock).mockReset().mockResolvedValue(undefined);
   });
 
   it('creates a Kimai timesheet for a new worklog', async () => {
@@ -120,5 +130,42 @@ describe('syncJiraWorklogToKimai', () => {
 
     expect(client.createTimesheet).not.toHaveBeenCalled();
     expect(client.updateTimesheet).not.toHaveBeenCalled();
+  });
+
+  it('recovers a created timesheet when mapping persistence fails', async () => {
+    const hash = computeContentHash({
+      started: baseChange.started,
+      duration: baseChange.timeSpentSeconds,
+      comment: baseChange.comment,
+    });
+    const pendingMapping = {
+      jiraIssueId: baseChange.jiraIssueId,
+      jiraIssueKey: baseChange.jiraIssueKey,
+      jiraWorklogId: baseChange.jiraWorklogId,
+      kimaiTimesheetId: 8291,
+      origin: 'jira' as const,
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: hash,
+    };
+    (mappingsStorage.getPendingKimaiTimesheetCreation as jest.Mock)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(pendingMapping);
+    (mappingsStorage.saveWorklogMapping as jest.Mock)
+      .mockRejectedValueOnce(new Error('KVS unavailable'))
+      .mockResolvedValueOnce(undefined);
+    const client = buildClient();
+
+    await expect(syncJiraWorklogToKimai(client, baseChange)).rejects.toThrow('KVS unavailable');
+    const mapping = await syncJiraWorklogToKimai(client, baseChange);
+
+    expect(client.createTimesheet).toHaveBeenCalledTimes(1);
+    expect(mappingsStorage.savePendingKimaiTimesheetCreation).toHaveBeenCalledWith(
+      baseChange.jiraWorklogId,
+      expect.objectContaining({ kimaiTimesheetId: 8291, lastHash: hash }),
+    );
+    expect(mappingsStorage.deletePendingKimaiTimesheetCreation).toHaveBeenCalledWith(
+      baseChange.jiraWorklogId,
+    );
+    expect(mapping).toEqual(pendingMapping);
   });
 });

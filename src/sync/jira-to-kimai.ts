@@ -9,9 +9,12 @@ import {
 } from './idempotency';
 import {
   claimJiraWorklogSync,
+  deletePendingKimaiTimesheetCreation,
   getMappingByJiraWorklogId,
+  getPendingKimaiTimesheetCreation,
   recordMapping,
   releaseJiraWorklogSync,
+  savePendingKimaiTimesheetCreation,
 } from './mapping';
 
 const SYNC_CLAIM_RETRY_DELAY_MS = 25;
@@ -67,18 +70,24 @@ export async function syncJiraWorklogToKimai(
 
   const syncClaimed = await claimJiraWorklogSyncWithRetry(change.jiraWorklogId);
   if (!syncClaimed) {
-    logger.info({
-      event: 'worklog.sync_in_progress',
+    logger.warn({
+      event: 'worklog.sync_retry_required',
       direction: 'jira-to-kimai',
       jiraIssueKey: change.jiraIssueKey,
       jiraWorklogId: change.jiraWorklogId,
-      result: 'success',
+      result: 'failure',
     });
-    return undefined;
+    throw new Error('Jira worklog synchronization is busy; retry the event.');
   }
 
   try {
-    const existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
+    let existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
+    const pendingCreation = await getPendingKimaiTimesheetCreation(change.jiraWorklogId);
+    if (pendingCreation) {
+      await recordMapping(pendingCreation);
+      await deletePendingKimaiTimesheetCreation(change.jiraWorklogId);
+      existing = pendingCreation;
+    }
     const started = normalizeSyncTimestamp(change.started);
     const startedMs = new Date(started).getTime();
     const hash = computeContentHash({
@@ -100,6 +109,7 @@ export async function syncJiraWorklogToKimai(
 
     const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
     const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
+    const createdTimesheet = !existing;
     const timesheet = existing
       ? await client.updateTimesheet(existing.kimaiTimesheetId, {
           begin: started,
@@ -124,7 +134,13 @@ export async function syncJiraWorklogToKimai(
       lastHash: hash,
     });
 
+    if (createdTimesheet) {
+      await savePendingKimaiTimesheetCreation(change.jiraWorklogId, mapping);
+    }
     await recordMapping(mapping);
+    if (createdTimesheet) {
+      await deletePendingKimaiTimesheetCreation(change.jiraWorklogId);
+    }
 
     logger.info({
       event: existing ? 'worklog.updated' : 'worklog.created',

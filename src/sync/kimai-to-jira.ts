@@ -83,14 +83,14 @@ export async function syncKimaiTimesheetToJira(
 ): Promise<WorklogMapping | undefined> {
   const syncClaimed = await claimKimaiTimesheetSyncWithRetry(change.kimaiTimesheetId);
   if (!syncClaimed) {
-    logger.info({
-      event: 'timesheet.sync_in_progress',
+    logger.warn({
+      event: 'timesheet.sync_retry_required',
       direction: 'kimai-to-jira',
       jiraIssueKey: change.jiraIssueKey,
       kimaiTimesheetId: change.kimaiTimesheetId,
-      result: 'success',
+      result: 'failure',
     });
-    return undefined;
+    throw new Error('Kimai timesheet synchronization is busy; retry the event.');
   }
 
   try {

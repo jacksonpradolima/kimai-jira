@@ -38,6 +38,6 @@ export function resolveIssueKey(payload: KimaiTimesheetPayload): string | undefi
   if (payload.meta?.jiraIssueKey) {
     return payload.meta.jiraIssueKey;
   }
-  const match = /\[([A-Z][A-Z0-9]+-\d+)\]/.exec(payload.description ?? '');
+  const match = /\[([A-Z][A-Z0-9]*-\d+)\]/.exec(payload.description ?? '');
   return match ? match[1] : undefined;
 }

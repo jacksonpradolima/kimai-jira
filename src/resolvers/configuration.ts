@@ -32,8 +32,12 @@ resolver.define('saveConnectionSettings', async (request) => {
   };
 
   const existing = await getKimaiConfig();
+  const url = normalizeKimaiUrl(payload.url ?? existing?.url);
+  if (!url) {
+    return { ok: false, error: 'A valid Kimai URL is required.' };
+  }
   const config: KimaiConfig = {
-    url: payload.url ?? existing?.url ?? '',
+    url,
     hasToken: Boolean(payload.apiToken) || Boolean(existing?.hasToken),
     defaultProjectId: coerceId(payload.defaultProjectId) ?? existing?.defaultProjectId,
     defaultActivityId: coerceId(payload.defaultActivityId) ?? existing?.defaultActivityId,
@@ -105,6 +109,20 @@ function coerceId(value: number | string | undefined): number | undefined {
 
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizeKimaiUrl(value: string | undefined): string | undefined {
+  const url = value?.trim();
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export const handler = resolver.getDefinitions();

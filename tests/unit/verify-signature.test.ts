@@ -19,6 +19,11 @@ describe('verifyWebhookSignature', () => {
     expect(verifyWebhookSignature(body, signature, secret)).toBe(true);
   });
 
+  it('accepts a prefixed signature regardless of prefix case and whitespace', () => {
+    const signature = `  SHA256=${sign(body, secret)}  `;
+    expect(verifyWebhookSignature(body, signature, secret)).toBe(true);
+  });
+
   it('rejects a tampered body', () => {
     const signature = `sha256=${sign(body, secret)}`;
     expect(verifyWebhookSignature(`${body}tampered`, signature, secret)).toBe(false);
