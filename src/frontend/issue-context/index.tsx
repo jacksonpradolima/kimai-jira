@@ -9,6 +9,10 @@ interface TimerState {
   defaultActivityId?: number;
 }
 
+interface Timesheet {
+  id: number;
+}
+
 /**
  * Issue-context panel entry point ("jira:issueContext").
  *
@@ -20,6 +24,7 @@ const App = () => {
   const [state, setState] = useState<TimerState | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
+  const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
 
   useEffect(() => {
     Promise.all([invoke('getIssueTimerState'), view.getContext()])
@@ -42,16 +47,39 @@ const App = () => {
         project: state.defaultProjectId,
         activity: state.defaultActivityId,
         description: `[${issueKey}] Jira issue timer`,
-      })) as { ok?: boolean; error?: string };
+      })) as { ok?: boolean; error?: string; timesheet?: Timesheet };
 
-      if (!result?.ok) {
+      if (!result?.ok || !result.timesheet) {
         setError(result?.error ?? 'Unable to start the Kimai timer.');
         return;
       }
 
+      setRunningTimesheet(result.timesheet);
       setError(undefined);
     } catch (startError) {
       setError(`Unable to start the Kimai timer: ${String(startError)}`);
+    }
+  };
+
+  const handleStop = async () => {
+    if (!runningTimesheet) {
+      return;
+    }
+
+    try {
+      const result = (await invoke('stopTimer', {
+        timesheetId: runningTimesheet.id,
+      })) as { ok?: boolean; error?: string };
+
+      if (!result?.ok) {
+        setError(result?.error ?? 'Unable to stop the Kimai timer.');
+        return;
+      }
+
+      setRunningTimesheet(undefined);
+      setError(undefined);
+    } catch (stopError) {
+      setError(`Unable to stop the Kimai timer: ${String(stopError)}`);
     }
   };
 
@@ -73,9 +101,15 @@ const App = () => {
         <TabPanel>
           <Stack space="space.100">
             <Text>00:00:00</Text>
-            <Button appearance="primary" onClick={handleStart}>
-              Start
-            </Button>
+            {runningTimesheet ? (
+              <Button appearance="primary" onClick={handleStop}>
+                Stop
+              </Button>
+            ) : (
+              <Button appearance="primary" onClick={handleStart}>
+                Start
+              </Button>
+            )}
             {error && <Text>{error}</Text>}
           </Stack>
         </TabPanel>

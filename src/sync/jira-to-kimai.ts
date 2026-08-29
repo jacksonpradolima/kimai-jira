@@ -6,7 +6,12 @@ import {
   mergeMapping,
   shouldSkipSyncEvent,
 } from './idempotency';
-import { getMappingByJiraWorklogId, recordMapping } from './mapping';
+import {
+  claimJiraWorklogCreation,
+  getMappingByJiraWorklogId,
+  recordMapping,
+  releaseJiraWorklogCreation,
+} from './mapping';
 
 export interface JiraWorklogChange {
   jiraIssueId: string;
@@ -68,40 +73,61 @@ export async function syncJiraWorklogToKimai(
   const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
   const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
 
-  const timesheet = existing
-    ? await client.updateTimesheet(existing.kimaiTimesheetId, {
-        begin: change.started,
-        end: endIso,
-        description,
-      })
-    : await client.createTimesheet({
-        begin: change.started,
-        end: endIso,
-        description,
-        project: change.kimaiProjectId,
-        activity: change.kimaiActivityId,
-        user: change.kimaiUserId,
+  let creationClaimed = false;
+  if (!existing) {
+    creationClaimed = await claimJiraWorklogCreation(change.jiraWorklogId);
+    if (!creationClaimed) {
+      logger.info({
+        event: 'worklog.create_in_progress',
+        direction: 'jira-to-kimai',
+        jiraIssueKey: change.jiraIssueKey,
+        jiraWorklogId: change.jiraWorklogId,
+        result: 'success',
       });
+      return undefined;
+    }
+  }
 
-  const mapping = mergeMapping(existing, {
-    jiraIssueId: change.jiraIssueId,
-    jiraIssueKey: change.jiraIssueKey,
-    jiraWorklogId: change.jiraWorklogId,
-    kimaiTimesheetId: timesheet.id,
-    origin: 'jira',
-    lastHash: hash,
-  });
+  try {
+    const timesheet = existing
+      ? await client.updateTimesheet(existing.kimaiTimesheetId, {
+          begin: change.started,
+          end: endIso,
+          description,
+        })
+      : await client.createTimesheet({
+          begin: change.started,
+          end: endIso,
+          description,
+          project: change.kimaiProjectId,
+          activity: change.kimaiActivityId,
+          user: change.kimaiUserId,
+        });
 
-  await recordMapping(mapping);
+    const mapping = mergeMapping(existing, {
+      jiraIssueId: change.jiraIssueId,
+      jiraIssueKey: change.jiraIssueKey,
+      jiraWorklogId: change.jiraWorklogId,
+      kimaiTimesheetId: timesheet.id,
+      origin: 'jira',
+      lastHash: hash,
+    });
 
-  logger.info({
-    event: existing ? 'worklog.updated' : 'worklog.created',
-    direction: 'jira-to-kimai',
-    jiraIssueKey: change.jiraIssueKey,
-    jiraWorklogId: change.jiraWorklogId,
-    kimaiTimesheetId: timesheet.id,
-    result: 'success',
-  });
+    await recordMapping(mapping);
 
-  return mapping;
+    logger.info({
+      event: existing ? 'worklog.updated' : 'worklog.created',
+      direction: 'jira-to-kimai',
+      jiraIssueKey: change.jiraIssueKey,
+      jiraWorklogId: change.jiraWorklogId,
+      kimaiTimesheetId: timesheet.id,
+      result: 'success',
+    });
+
+    return mapping;
+  } finally {
+    if (creationClaimed) {
+      await releaseJiraWorklogCreation(change.jiraWorklogId);
+    }
+  }
 }

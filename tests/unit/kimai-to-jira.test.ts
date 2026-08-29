@@ -29,6 +29,7 @@ function buildClient(overrides: Partial<JiraClient> = {}): JiraClient {
       comment: '1-1 Meetings',
     }),
     getWorklog: jest.fn(),
+    deleteWorklog: jest.fn(),
     ...overrides,
   };
 }
@@ -108,5 +109,38 @@ describe('syncKimaiTimesheetToJira', () => {
     ).rejects.toThrow(RangeError);
     expect(client.createWorklog).not.toHaveBeenCalled();
     expect(client.updateWorklog).not.toHaveBeenCalled();
+  });
+
+  it('recreates the worklog when the Kimai issue marker changes', async () => {
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai',
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: 'stale-hash',
+    });
+    const client = buildClient({
+      createWorklog: jest.fn().mockResolvedValue({
+        id: '100272',
+        issueId: '10002',
+        started: baseChange.begin,
+        timeSpentSeconds: 3600,
+      }),
+    });
+
+    const mapping = await syncKimaiTimesheetToJira(client, {
+      ...baseChange,
+      jiraIssueKey: 'BA-4',
+      description: '[BA-4] 1-1 Meetings',
+    });
+
+    expect(client.deleteWorklog).toHaveBeenCalledWith('BA-3', '100271');
+    expect(client.createWorklog).toHaveBeenCalledWith(
+      expect.objectContaining({ issueIdOrKey: 'BA-4' }),
+    );
+    expect(client.updateWorklog).not.toHaveBeenCalled();
+    expect(mapping).toEqual(expect.objectContaining({ jiraIssueKey: 'BA-4', jiraWorklogId: '100272' }));
   });
 });

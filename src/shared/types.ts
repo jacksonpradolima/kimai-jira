@@ -68,6 +68,7 @@ export type UpdateTimesheetInput = Partial<CreateTimesheetInput>;
 export interface StartTimerInput {
   project: number;
   activity: number;
+  user?: number;
   description?: string;
 }
 

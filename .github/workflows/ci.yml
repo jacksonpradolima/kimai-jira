@@ -11,6 +11,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+      FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -37,10 +40,7 @@ jobs:
       # external contributors; they can still run `npx forge lint` locally
       # against their own free Forge developer account.
       - name: Forge lint
-        if: ${{ secrets.FORGE_API_TOKEN != '' }}
-        env:
-          FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
-          FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+        if: ${{ env.FORGE_API_TOKEN != '' }}
         continue-on-error: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
         run: |
           npx forge settings set usage-analytics false

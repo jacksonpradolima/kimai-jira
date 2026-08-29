@@ -1,7 +1,9 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
+  claimJiraWorklogCreation: jest.fn().mockResolvedValue(true),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
+  releaseJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { KimaiClient } from '../../src/kimai/client';
@@ -52,6 +54,17 @@ describe('syncJiraWorklogToKimai', () => {
     );
     expect(mapping?.kimaiTimesheetId).toBe(8291);
     expect(mapping?.jiraWorklogId).toBe('100271');
+  });
+
+  it('does not create a duplicate while another delivery owns the creation claim', async () => {
+    (mappingsStorage.claimJiraWorklogCreation as jest.Mock).mockResolvedValueOnce(false);
+
+    const client = buildClient();
+    const mapping = await syncJiraWorklogToKimai(client, baseChange);
+
+    expect(mapping).toBeUndefined();
+    expect(client.createTimesheet).not.toHaveBeenCalled();
+    expect(mappingsStorage.releaseJiraWorklogCreation).not.toHaveBeenCalled();
   });
 
   it('skips self-generated events to prevent sync loops', async () => {

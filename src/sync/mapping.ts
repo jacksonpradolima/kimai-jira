@@ -1,11 +1,18 @@
 import {
+  claimJiraWorklogCreation,
   getMappingByJiraWorklogId,
   getMappingByKimaiTimesheetId,
+  releaseJiraWorklogCreation,
   saveWorklogMapping,
 } from '../storage/mappings';
 import { WorklogMapping } from '../shared/types';
 
-export { getMappingByJiraWorklogId, getMappingByKimaiTimesheetId };
+export {
+  claimJiraWorklogCreation,
+  getMappingByJiraWorklogId,
+  getMappingByKimaiTimesheetId,
+  releaseJiraWorklogCreation,
+};
 
 /**
  * Records that a given Jira worklog is linked to a given Kimai timesheet,

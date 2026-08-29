@@ -51,6 +51,7 @@ export interface JiraClient {
     input: UpdateJiraWorklogInput,
   ): Promise<JiraWorklog>;
   getWorklog(issueIdOrKey: string, worklogId: string): Promise<JiraWorklog>;
+  deleteWorklog(issueIdOrKey: string, worklogId: string): Promise<void>;
 }
 
 export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
@@ -119,6 +120,20 @@ export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
     }
 
     return (await response.json()) as JiraWorklog;
+  }
+
+  async deleteWorklog(issueIdOrKey: string, worklogId: string): Promise<void> {
+    const response = await asApp().requestJira(
+      route`/rest/api/3/issue/${issueIdOrKey}/worklog/${worklogId}`,
+      { method: 'DELETE' },
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira worklog delete failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
   }
 
   async getIssueKey(issueIdOrKey: string): Promise<string> {

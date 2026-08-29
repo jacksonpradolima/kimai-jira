@@ -51,7 +51,12 @@ export async function syncKimaiTimesheetToJira(
     return existing;
   }
 
-  const worklog = existing
+  const issueChanged = Boolean(existing && existing.jiraIssueKey !== change.jiraIssueKey);
+  if (issueChanged && existing) {
+    await client.deleteWorklog(existing.jiraIssueKey, existing.jiraWorklogId);
+  }
+
+  const worklog = existing && !issueChanged
     ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
         started: change.begin,
         timeSpentSeconds,

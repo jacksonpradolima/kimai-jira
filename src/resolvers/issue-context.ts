@@ -2,6 +2,7 @@ import Resolver from '@forge/resolver';
 import { HttpKimaiClient } from '../kimai/client';
 import { getKimaiConfig } from '../storage/config';
 import { getKimaiApiToken } from '../storage/secrets';
+import { getUserMapping } from '../storage/users';
 import { toSafeUserMessage } from '../shared/errors';
 
 const resolver = new Resolver();
@@ -27,8 +28,13 @@ resolver.define('getIssueTimerState', async () => {
 resolver.define('startTimer', async (request) => {
   const config = await getKimaiConfig();
   const apiToken = await getKimaiApiToken();
+  const accountId = request.context.accountId as string | undefined;
+  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
   if (!config || !apiToken) {
     return { ok: false, error: 'Kimai is not configured yet.' };
+  }
+  if (!userMapping?.enabled) {
+    return { ok: false, error: 'No enabled Kimai user mapping exists for this Jira user.' };
   }
 
   try {
@@ -38,7 +44,12 @@ resolver.define('startTimer', async (request) => {
       activity: number;
       description?: string;
     };
-    const timesheet = await client.startTimer({ project, activity, description });
+    const timesheet = await client.startTimer({
+      project,
+      activity,
+      description,
+      user: userMapping.kimaiUserId,
+    });
     return { ok: true, timesheet };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
