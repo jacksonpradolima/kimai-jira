@@ -7,6 +7,12 @@ import { toSafeUserMessage } from '../shared/errors';
 
 const resolver = new Resolver();
 
+function getTrustedIssueKey(context: Record<string, unknown>): string | undefined {
+  const extension = context.extension as { issue?: { key?: unknown } } | undefined;
+  const issueKey = extension?.issue?.key;
+  return typeof issueKey === 'string' && issueKey ? issueKey : undefined;
+}
+
 /**
  * Returns today's tracked time summary for the current issue context, used
  * to render the `jira:issueContext` panel.
@@ -20,8 +26,8 @@ resolver.define('getIssueTimerState', async (request) => {
     return { configured: false };
   }
 
-  const issueKey = (request.payload as { issueKey?: string }).issueKey;
-  let runningTimesheet: { id: number } | undefined;
+  const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
+  let runningTimesheet: { id: number; begin: string } | undefined;
   if (userMapping?.enabled && issueKey) {
     try {
       const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
@@ -30,7 +36,7 @@ resolver.define('getIssueTimerState', async (request) => {
       const active = activeTimesheets.find((timesheet) =>
         timesheet.description?.startsWith(issueMarker),
       );
-      runningTimesheet = active ? { id: active.id } : undefined;
+      runningTimesheet = active ? { id: active.id, begin: active.begin } : undefined;
     } catch {
       // Keep the issue panel available when active-timer lookup is unavailable.
     }
@@ -56,18 +62,17 @@ resolver.define('startTimer', async (request) => {
   if (!userMapping?.enabled) {
     return { ok: false, error: 'No enabled Kimai user mapping exists for this Jira user.' };
   }
+  const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
+  if (!config.defaultProjectId || !config.defaultActivityId || !issueKey) {
+    return { ok: false, error: 'This issue timer requires Kimai defaults and an issue context.' };
+  }
 
   try {
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
-    const { project, activity, description } = request.payload as {
-      project: number;
-      activity: number;
-      description?: string;
-    };
     const timesheet = await client.startTimer({
-      project,
-      activity,
-      description,
+      project: config.defaultProjectId,
+      activity: config.defaultActivityId,
+      description: `[${issueKey}] Jira issue timer`,
       user: userMapping.kimaiUserId,
     });
     return { ok: true, timesheet };

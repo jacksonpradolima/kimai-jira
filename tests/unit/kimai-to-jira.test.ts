@@ -1,9 +1,12 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
-  claimKimaiTimesheetCreation: jest.fn().mockResolvedValue(true),
+  claimKimaiTimesheetSync: jest.fn().mockResolvedValue(true),
+  deletePendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
-  releaseKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
+  getPendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
+  releaseKimaiTimesheetSync: jest.fn().mockResolvedValue(undefined),
+  savePendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { JiraClient } from '../../src/jira/client';
@@ -113,15 +116,16 @@ describe('syncKimaiTimesheetToJira', () => {
     expect(client.updateWorklog).not.toHaveBeenCalled();
   });
 
-  it('does not create a duplicate while another delivery owns the creation claim', async () => {
-    (mappingsStorage.claimKimaiTimesheetCreation as jest.Mock).mockResolvedValueOnce(false);
+  it('waits for an existing sync claim before applying the timesheet', async () => {
+    (mappingsStorage.claimKimaiTimesheetSync as jest.Mock).mockResolvedValueOnce(false);
 
     const client = buildClient();
     const mapping = await syncKimaiTimesheetToJira(client, baseChange);
 
-    expect(mapping).toBeUndefined();
-    expect(client.createWorklog).not.toHaveBeenCalled();
-    expect(mappingsStorage.releaseKimaiTimesheetCreation).not.toHaveBeenCalled();
+    expect(mappingsStorage.claimKimaiTimesheetSync).toHaveBeenCalledTimes(2);
+    expect(client.createWorklog).toHaveBeenCalledTimes(1);
+    expect(mapping?.jiraWorklogId).toBe('100271');
+    expect(mappingsStorage.releaseKimaiTimesheetSync).toHaveBeenCalledWith(8291);
   });
 
   it('recreates the worklog when the Kimai issue marker changes', async () => {
@@ -230,6 +234,72 @@ describe('syncKimaiTimesheetToJira', () => {
         jiraWorklogId: '100272',
         pendingJiraWorklogDeletion: { jiraIssueKey: 'BA-3', jiraWorklogId: '100271' },
       }),
+    );
+  });
+
+  it('recovers a created worklog when mapping persistence fails', async () => {
+    const hash = computeContentHash({
+      started: baseChange.begin,
+      duration: 3600,
+      comment: '1-1 Meetings',
+    });
+    const pendingMapping = {
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai' as const,
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: hash,
+    };
+    (mappingsStorage.getPendingJiraWorklogCreation as jest.Mock)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(pendingMapping);
+    (mappingsStorage.saveWorklogMapping as jest.Mock)
+      .mockRejectedValueOnce(new Error('KVS unavailable'))
+      .mockResolvedValueOnce(undefined);
+    const client = buildClient();
+
+    await expect(syncKimaiTimesheetToJira(client, baseChange)).rejects.toThrow('KVS unavailable');
+    const mapping = await syncKimaiTimesheetToJira(client, baseChange);
+
+    expect(client.createWorklog).toHaveBeenCalledTimes(1);
+    expect(mappingsStorage.savePendingJiraWorklogCreation).toHaveBeenCalledWith(
+      8291,
+      expect.objectContaining({
+        jiraWorklogId: '100271',
+        kimaiTimesheetId: 8291,
+        lastHash: hash,
+      }),
+    );
+    expect(mappingsStorage.deletePendingJiraWorklogCreation).toHaveBeenCalledWith(8291);
+    expect(mapping).toEqual(pendingMapping);
+  });
+
+  it('clears pending cleanup when Jira reports the obsolete worklog is missing', async () => {
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10002',
+      jiraIssueKey: 'BA-4',
+      jiraWorklogId: '100272',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai',
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: 'stale-hash',
+      pendingJiraWorklogDeletion: { jiraIssueKey: 'BA-3', jiraWorklogId: '100271' },
+    });
+    const client = buildClient({
+      deleteWorklog: jest.fn().mockRejectedValue(new Error('Jira worklog delete failed (404 Not Found)')),
+    });
+
+    await syncKimaiTimesheetToJira(client, {
+      ...baseChange,
+      jiraIssueKey: 'BA-4',
+      description: '[BA-4] 1-1 Meetings',
+    });
+
+    expect(client.updateWorklog).toHaveBeenCalledWith('BA-4', '100272', expect.any(Object));
+    expect(mappingsStorage.saveWorklogMapping).toHaveBeenCalledWith(
+      expect.objectContaining({ pendingJiraWorklogDeletion: undefined }),
     );
   });
 });

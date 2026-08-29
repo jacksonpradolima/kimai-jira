@@ -8,11 +8,61 @@ import {
   shouldSkipSyncEvent,
 } from './idempotency';
 import {
-  claimKimaiTimesheetCreation,
+  claimKimaiTimesheetSync,
+  deletePendingJiraWorklogCreation,
   getMappingByKimaiTimesheetId,
+  getPendingJiraWorklogCreation,
   recordMapping,
-  releaseKimaiTimesheetCreation,
+  releaseKimaiTimesheetSync,
+  savePendingJiraWorklogCreation,
 } from './mapping';
+
+const SYNC_CLAIM_RETRY_DELAY_MS = 25;
+const SYNC_CLAIM_RETRY_COUNT = 40;
+
+async function claimKimaiTimesheetSyncWithRetry(kimaiTimesheetId: number): Promise<boolean> {
+  for (let attempt = 0; attempt < SYNC_CLAIM_RETRY_COUNT; attempt += 1) {
+    if (await claimKimaiTimesheetSync(kimaiTimesheetId)) {
+      return true;
+    }
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, SYNC_CLAIM_RETRY_DELAY_MS);
+    });
+  }
+
+  return false;
+}
+
+function isJiraWorklogNotFound(error: unknown): boolean {
+  return error instanceof Error && /\b404\b/.test(error.message);
+}
+
+async function completePendingJiraWorklogDeletion(
+  client: JiraClient,
+  existing: WorklogMapping,
+): Promise<WorklogMapping> {
+  const pendingDeletion = existing.pendingJiraWorklogDeletion;
+  if (!pendingDeletion) {
+    return existing;
+  }
+
+  try {
+    await client.deleteWorklog(pendingDeletion.jiraIssueKey, pendingDeletion.jiraWorklogId);
+  } catch (error) {
+    if (!isJiraWorklogNotFound(error)) {
+      throw error;
+    }
+  }
+
+  const cleared = mergeMapping(existing, {
+    jiraWorklogId: existing.jiraWorklogId,
+    kimaiTimesheetId: existing.kimaiTimesheetId,
+    pendingJiraWorklogDeletion: undefined,
+  });
+  await recordMapping(cleared);
+  return cleared;
+}
 
 export interface KimaiTimesheetChange {
   kimaiTimesheetId: number;
@@ -31,61 +81,55 @@ export async function syncKimaiTimesheetToJira(
   client: JiraClient,
   change: KimaiTimesheetChange,
 ): Promise<WorklogMapping | undefined> {
-  let existing = await getMappingByKimaiTimesheetId(change.kimaiTimesheetId);
-  const begin = normalizeSyncTimestamp(change.begin);
-  const end = normalizeSyncTimestamp(change.end);
-  const beginMs = new Date(begin).getTime();
-  const endMs = new Date(end).getTime();
-
-  if (existing?.pendingJiraWorklogDeletion) {
-    const pendingDeletion = existing.pendingJiraWorklogDeletion;
-    await client.deleteWorklog(pendingDeletion.jiraIssueKey, pendingDeletion.jiraWorklogId);
-    existing = mergeMapping(existing, {
-      jiraWorklogId: existing.jiraWorklogId,
-      kimaiTimesheetId: existing.kimaiTimesheetId,
-      pendingJiraWorklogDeletion: undefined,
-    });
-    await recordMapping(existing);
-  }
-
-  const timeSpentSeconds = Math.max(0, Math.round((endMs - beginMs) / 1000));
-  const comment = normalizeKimaiDescription(change.description, change.jiraIssueKey);
-
-  const hash = computeContentHash({
-    started: begin,
-    duration: timeSpentSeconds,
-    comment,
-  });
-
-  if (shouldSkipSyncEvent(existing, { hash })) {
+  const syncClaimed = await claimKimaiTimesheetSyncWithRetry(change.kimaiTimesheetId);
+  if (!syncClaimed) {
     logger.info({
-      event: 'timesheet.duplicate_ignored',
+      event: 'timesheet.sync_in_progress',
       direction: 'kimai-to-jira',
       jiraIssueKey: change.jiraIssueKey,
       kimaiTimesheetId: change.kimaiTimesheetId,
       result: 'success',
     });
-    return existing;
+    return undefined;
   }
 
-  const issueChanged = Boolean(existing && existing.jiraIssueKey !== change.jiraIssueKey);
-  const requiresCreation = !existing || issueChanged;
-  let creationClaimed = false;
-  if (requiresCreation) {
-    creationClaimed = await claimKimaiTimesheetCreation(change.kimaiTimesheetId);
-    if (!creationClaimed) {
+  try {
+    let existing = await getMappingByKimaiTimesheetId(change.kimaiTimesheetId);
+    const pendingCreation = await getPendingJiraWorklogCreation(change.kimaiTimesheetId);
+    if (pendingCreation) {
+      await recordMapping(pendingCreation);
+      await deletePendingJiraWorklogCreation(change.kimaiTimesheetId);
+      existing = pendingCreation;
+    }
+    if (existing) {
+      existing = await completePendingJiraWorklogDeletion(client, existing);
+    }
+
+    const begin = normalizeSyncTimestamp(change.begin);
+    const end = normalizeSyncTimestamp(change.end);
+    const beginMs = new Date(begin).getTime();
+    const endMs = new Date(end).getTime();
+    const timeSpentSeconds = Math.max(0, Math.round((endMs - beginMs) / 1000));
+    const comment = normalizeKimaiDescription(change.description, change.jiraIssueKey);
+    const hash = computeContentHash({
+      started: begin,
+      duration: timeSpentSeconds,
+      comment,
+    });
+
+    if (shouldSkipSyncEvent(existing, { hash })) {
       logger.info({
-        event: 'timesheet.create_in_progress',
+        event: 'timesheet.duplicate_ignored',
         direction: 'kimai-to-jira',
         jiraIssueKey: change.jiraIssueKey,
         kimaiTimesheetId: change.kimaiTimesheetId,
         result: 'success',
       });
-      return undefined;
+      return existing;
     }
-  }
 
-  try {
+    const issueChanged = Boolean(existing && existing.jiraIssueKey !== change.jiraIssueKey);
+    const createdWorklog = !existing || issueChanged;
     const worklog = existing && !issueChanged
       ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
           started: begin,
@@ -115,19 +159,16 @@ export async function syncKimaiTimesheetToJira(
       pendingJiraWorklogDeletion,
     });
 
+    if (createdWorklog) {
+      await savePendingJiraWorklogCreation(change.kimaiTimesheetId, mapping);
+    }
     await recordMapping(mapping);
+    if (createdWorklog) {
+      await deletePendingJiraWorklogCreation(change.kimaiTimesheetId);
+    }
 
     if (pendingJiraWorklogDeletion) {
-      await client.deleteWorklog(
-        pendingJiraWorklogDeletion.jiraIssueKey,
-        pendingJiraWorklogDeletion.jiraWorklogId,
-      );
-      mapping = mergeMapping(mapping, {
-        jiraWorklogId: mapping.jiraWorklogId,
-        kimaiTimesheetId: mapping.kimaiTimesheetId,
-        pendingJiraWorklogDeletion: undefined,
-      });
-      await recordMapping(mapping);
+      mapping = await completePendingJiraWorklogDeletion(client, mapping);
     }
 
     logger.info({
@@ -141,9 +182,7 @@ export async function syncKimaiTimesheetToJira(
 
     return mapping;
   } finally {
-    if (creationClaimed) {
-      await releaseKimaiTimesheetCreation(change.kimaiTimesheetId);
-    }
+    await releaseKimaiTimesheetSync(change.kimaiTimesheetId);
   }
 }
 

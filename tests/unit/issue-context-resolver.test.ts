@@ -37,7 +37,12 @@ import { handler } from '../../src/resolvers/issue-context';
 describe('issue context resolver', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetKimaiConfig.mockResolvedValue({ url: 'https://kimai.example.test', hasToken: true });
+    mockGetKimaiConfig.mockResolvedValue({
+      url: 'https://kimai.example.test',
+      hasToken: true,
+      defaultProjectId: 1,
+      defaultActivityId: 2,
+    });
     mockGetKimaiApiToken.mockResolvedValue('token');
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
     mockGetActiveTimesheets.mockResolvedValue([]);
@@ -49,8 +54,8 @@ describe('issue context resolver', () => {
   it('starts issue timers for the invoking Jira user mapping', async () => {
     const startTimer = (handler as unknown as typeof mockDefinitions).startTimer;
     const result = await startTimer({
-      context: { accountId: '712020:abc123' },
-      payload: { project: 1, activity: 2, description: '[BA-3] Jira issue timer' },
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: { project: 99, activity: 88, description: '[BA-999] untrusted' },
     });
 
     expect(mockGetUserMapping).toHaveBeenCalledWith('712020:abc123');
@@ -66,17 +71,19 @@ describe('issue context resolver', () => {
   it('restores the active timer for the current issue', async () => {
     mockGetActiveTimesheets.mockResolvedValue([
       { id: 8290, description: '[BA-2] Jira issue timer' },
-      { id: 8291, description: '[BA-3] Jira issue timer' },
+      { id: 8291, begin: '2026-08-29T10:00:00.000Z', description: '[BA-3] Jira issue timer' },
     ]);
     const getIssueTimerState = (handler as unknown as typeof mockDefinitions).getIssueTimerState;
 
     const result = await getIssueTimerState({
-      context: { accountId: '712020:abc123' },
-      payload: { issueKey: 'BA-3' },
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: { issueKey: 'BA-999' },
     });
 
     expect(mockGetActiveTimesheets).toHaveBeenCalledWith(42);
-    expect(result).toEqual(expect.objectContaining({ runningTimesheet: { id: 8291 } }));
+    expect(result).toEqual(expect.objectContaining({
+      runningTimesheet: { id: 8291, begin: '2026-08-29T10:00:00.000Z' },
+    }));
   });
 
   it('stops only a timer owned by the invoking Jira user mapping', async () => {

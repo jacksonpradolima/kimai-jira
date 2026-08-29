@@ -12,6 +12,18 @@ interface TimerState {
 
 interface Timesheet {
   id: number;
+  begin?: string;
+}
+
+function formatElapsedTime(startedAt: string | undefined, now: number): string {
+  const startMilliseconds = startedAt ? new Date(startedAt).getTime() : now;
+  const elapsedSeconds = Number.isNaN(startMilliseconds)
+    ? 0
+    : Math.max(0, Math.floor((now - startMilliseconds) / 1000));
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
 /**
@@ -26,15 +38,14 @@ const App = () => {
   const [error, setError] = useState<string | undefined>(undefined);
   const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     view.getContext()
       .then((context) => {
         const key = context.extension.issue?.key;
         setIssueKey(typeof key === 'string' ? key : undefined);
-        return invoke('getIssueTimerState', {
-          issueKey: typeof key === 'string' ? key : undefined,
-        });
+        return invoke('getIssueTimerState', {});
       })
       .then((result) => {
         const timerState = result as TimerState;
@@ -44,6 +55,16 @@ const App = () => {
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);
 
+  useEffect(() => {
+    if (!runningTimesheet) {
+      return undefined;
+    }
+
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [runningTimesheet]);
+
   const handleStart = async () => {
     if (!state?.defaultProjectId || !state?.defaultActivityId || !issueKey) {
       setError('Open a Jira issue after setting the default Kimai project and activity.');
@@ -51,11 +72,11 @@ const App = () => {
     }
 
     try {
-      const result = (await invoke('startTimer', {
-        project: state.defaultProjectId,
-        activity: state.defaultActivityId,
-        description: `[${issueKey}] Jira issue timer`,
-      })) as { ok?: boolean; error?: string; timesheet?: Timesheet };
+      const result = (await invoke('startTimer', {})) as {
+        ok?: boolean;
+        error?: string;
+        timesheet?: Timesheet;
+      };
 
       if (!result?.ok || !result.timesheet) {
         setError(result?.error ?? 'Unable to start the Kimai timer.');
@@ -108,7 +129,7 @@ const App = () => {
         </TabList>
         <TabPanel>
           <Stack space="space.100">
-            <Text>00:00:00</Text>
+            <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
             {runningTimesheet ? (
               <Button appearance="primary" onClick={handleStop}>
                 Stop

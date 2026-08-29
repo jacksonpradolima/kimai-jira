@@ -2,11 +2,16 @@ import {
   claimJiraWorklogCreation,
   claimJiraWorklogSync,
   claimKimaiTimesheetCreation,
+  claimKimaiTimesheetSync,
+  deletePendingJiraWorklogCreation,
   getMappingByJiraWorklogId,
   getMappingByKimaiTimesheetId,
+  getPendingJiraWorklogCreation,
   releaseJiraWorklogCreation,
   releaseJiraWorklogSync,
   releaseKimaiTimesheetCreation,
+  releaseKimaiTimesheetSync,
+  savePendingJiraWorklogCreation,
   saveWorklogMapping,
 } from '../storage/mappings';
 import { WorklogMapping } from '../shared/types';
@@ -15,11 +20,16 @@ export {
   claimJiraWorklogCreation,
   claimJiraWorklogSync,
   claimKimaiTimesheetCreation,
+  claimKimaiTimesheetSync,
+  deletePendingJiraWorklogCreation,
   getMappingByJiraWorklogId,
   getMappingByKimaiTimesheetId,
+  getPendingJiraWorklogCreation,
   releaseJiraWorklogCreation,
   releaseJiraWorklogSync,
   releaseKimaiTimesheetCreation,
+  releaseKimaiTimesheetSync,
+  savePendingJiraWorklogCreation,
 };
 
 /**

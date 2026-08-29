@@ -18,18 +18,25 @@ function byKimaiTimesheetReservationKey(kimaiTimesheetId: number): string {
   return `worklog:reservation:kimai:${kimaiTimesheetId}`;
 }
 
+function pendingJiraWorklogCreationKey(kimaiTimesheetId: number): string {
+  return `worklog:pending-jira-creation:${kimaiTimesheetId}`;
+}
+
 /**
  * Persists a worklog <-> timesheet mapping, indexed from both sides so it
  * can be looked up regardless of which system triggered the sync.
  */
 export async function saveWorklogMapping(mapping: WorklogMapping): Promise<void> {
   const previous = await getMappingByKimaiTimesheetId(mapping.kimaiTimesheetId);
+  const transaction = kvs.transact();
   if (previous && previous.jiraWorklogId !== mapping.jiraWorklogId) {
-    await kvs.delete(byJiraWorklogKey(previous.jiraWorklogId));
+    transaction.delete(byJiraWorklogKey(previous.jiraWorklogId));
   }
 
-  await kvs.set(byJiraWorklogKey(mapping.jiraWorklogId), mapping);
-  await kvs.set(byKimaiTimesheetKey(mapping.kimaiTimesheetId), mapping);
+  await transaction
+    .set(byJiraWorklogKey(mapping.jiraWorklogId), mapping)
+    .set(byKimaiTimesheetKey(mapping.kimaiTimesheetId), mapping)
+    .execute();
 }
 
 /**
@@ -75,8 +82,33 @@ export async function claimKimaiTimesheetCreation(kimaiTimesheetId: number): Pro
   return claimReservation(byKimaiTimesheetReservationKey(kimaiTimesheetId));
 }
 
+export async function claimKimaiTimesheetSync(kimaiTimesheetId: number): Promise<boolean> {
+  return claimReservation(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+}
+
 export async function releaseKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<void> {
   await kvs.delete(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+}
+
+export async function releaseKimaiTimesheetSync(kimaiTimesheetId: number): Promise<void> {
+  await kvs.delete(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+}
+
+export async function savePendingJiraWorklogCreation(
+  kimaiTimesheetId: number,
+  mapping: WorklogMapping,
+): Promise<void> {
+  await kvs.set(pendingJiraWorklogCreationKey(kimaiTimesheetId), mapping);
+}
+
+export async function getPendingJiraWorklogCreation(
+  kimaiTimesheetId: number,
+): Promise<WorklogMapping | undefined> {
+  return kvs.get<WorklogMapping>(pendingJiraWorklogCreationKey(kimaiTimesheetId));
+}
+
+export async function deletePendingJiraWorklogCreation(kimaiTimesheetId: number): Promise<void> {
+  await kvs.delete(pendingJiraWorklogCreationKey(kimaiTimesheetId));
 }
 
 export async function getMappingByJiraWorklogId(
