@@ -1,7 +1,9 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
+  claimKimaiTimesheetCreation: jest.fn().mockResolvedValue(true),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
+  releaseKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { JiraClient } from '../../src/jira/client';
@@ -111,6 +113,17 @@ describe('syncKimaiTimesheetToJira', () => {
     expect(client.updateWorklog).not.toHaveBeenCalled();
   });
 
+  it('does not create a duplicate while another delivery owns the creation claim', async () => {
+    (mappingsStorage.claimKimaiTimesheetCreation as jest.Mock).mockResolvedValueOnce(false);
+
+    const client = buildClient();
+    const mapping = await syncKimaiTimesheetToJira(client, baseChange);
+
+    expect(mapping).toBeUndefined();
+    expect(client.createWorklog).not.toHaveBeenCalled();
+    expect(mappingsStorage.releaseKimaiTimesheetCreation).not.toHaveBeenCalled();
+  });
+
   it('recreates the worklog when the Kimai issue marker changes', async () => {
     (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
       jiraIssueId: '10001',
@@ -142,5 +155,28 @@ describe('syncKimaiTimesheetToJira', () => {
     );
     expect(client.updateWorklog).not.toHaveBeenCalled();
     expect(mapping).toEqual(expect.objectContaining({ jiraIssueKey: 'BA-4', jiraWorklogId: '100272' }));
+  });
+
+  it('keeps the old worklog when replacement creation fails', async () => {
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001',
+      jiraIssueKey: 'BA-3',
+      jiraWorklogId: '100271',
+      kimaiTimesheetId: 8291,
+      origin: 'kimai',
+      lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastHash: 'stale-hash',
+    });
+    const client = buildClient({ createWorklog: jest.fn().mockRejectedValue(new Error('Jira unavailable')) });
+
+    await expect(
+      syncKimaiTimesheetToJira(client, {
+        ...baseChange,
+        jiraIssueKey: 'BA-4',
+        description: '[BA-4] 1-1 Meetings',
+      }),
+    ).rejects.toThrow('Jira unavailable');
+
+    expect(client.deleteWorklog).not.toHaveBeenCalled();
   });
 });

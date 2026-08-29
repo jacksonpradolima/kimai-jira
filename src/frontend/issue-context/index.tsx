@@ -7,6 +7,7 @@ interface TimerState {
   kimaiUrl?: string;
   defaultProjectId?: number;
   defaultActivityId?: number;
+  runningTimesheet?: Timesheet;
 }
 
 interface Timesheet {
@@ -27,11 +28,18 @@ const App = () => {
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
 
   useEffect(() => {
-    Promise.all([invoke('getIssueTimerState'), view.getContext()])
-      .then(([result, context]) => {
-        setState(result as TimerState);
+    view.getContext()
+      .then((context) => {
         const key = context.extension.issue?.key;
         setIssueKey(typeof key === 'string' ? key : undefined);
+        return invoke('getIssueTimerState', {
+          issueKey: typeof key === 'string' ? key : undefined,
+        });
+      })
+      .then((result) => {
+        const timerState = result as TimerState;
+        setState(timerState);
+        setRunningTimesheet(timerState.runningTimesheet);
       })
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);

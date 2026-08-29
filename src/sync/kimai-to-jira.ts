@@ -2,7 +2,12 @@ import { JiraClient } from '../jira/client';
 import { WorklogMapping } from '../shared/types';
 import { logger } from '../shared/logger';
 import { computeContentHash, mergeMapping, shouldSkipSyncEvent } from './idempotency';
-import { getMappingByKimaiTimesheetId, recordMapping } from './mapping';
+import {
+  claimKimaiTimesheetCreation,
+  getMappingByKimaiTimesheetId,
+  recordMapping,
+  releaseKimaiTimesheetCreation,
+} from './mapping';
 
 export interface KimaiTimesheetChange {
   kimaiTimesheetId: number;
@@ -52,44 +57,66 @@ export async function syncKimaiTimesheetToJira(
   }
 
   const issueChanged = Boolean(existing && existing.jiraIssueKey !== change.jiraIssueKey);
-  if (issueChanged && existing) {
-    await client.deleteWorklog(existing.jiraIssueKey, existing.jiraWorklogId);
+  const requiresCreation = !existing || issueChanged;
+  let creationClaimed = false;
+  if (requiresCreation) {
+    creationClaimed = await claimKimaiTimesheetCreation(change.kimaiTimesheetId);
+    if (!creationClaimed) {
+      logger.info({
+        event: 'timesheet.create_in_progress',
+        direction: 'kimai-to-jira',
+        jiraIssueKey: change.jiraIssueKey,
+        kimaiTimesheetId: change.kimaiTimesheetId,
+        result: 'success',
+      });
+      return undefined;
+    }
   }
 
-  const worklog = existing && !issueChanged
-    ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
-        started: change.begin,
-        timeSpentSeconds,
-        comment,
-      })
-    : await client.createWorklog({
-        issueIdOrKey: change.jiraIssueKey,
-        started: change.begin,
-        timeSpentSeconds,
-        comment,
-      });
+  try {
+    const worklog = existing && !issueChanged
+      ? await client.updateWorklog(change.jiraIssueKey, existing.jiraWorklogId, {
+          started: change.begin,
+          timeSpentSeconds,
+          comment,
+        })
+      : await client.createWorklog({
+          issueIdOrKey: change.jiraIssueKey,
+          started: change.begin,
+          timeSpentSeconds,
+          comment,
+        });
 
-  const mapping = mergeMapping(existing, {
-    jiraIssueId: worklog.issueId,
-    jiraIssueKey: change.jiraIssueKey,
-    jiraWorklogId: worklog.id,
-    kimaiTimesheetId: change.kimaiTimesheetId,
-    origin: 'kimai',
-    lastHash: hash,
-  });
+    if (issueChanged && existing) {
+      await client.deleteWorklog(existing.jiraIssueKey, existing.jiraWorklogId);
+    }
 
-  await recordMapping(mapping);
+    const mapping = mergeMapping(existing, {
+      jiraIssueId: worklog.issueId,
+      jiraIssueKey: change.jiraIssueKey,
+      jiraWorklogId: worklog.id,
+      kimaiTimesheetId: change.kimaiTimesheetId,
+      origin: 'kimai',
+      lastHash: hash,
+    });
 
-  logger.info({
-    event: existing ? 'timesheet.updated' : 'timesheet.created',
-    direction: 'kimai-to-jira',
-    jiraIssueKey: change.jiraIssueKey,
-    jiraWorklogId: worklog.id,
-    kimaiTimesheetId: change.kimaiTimesheetId,
-    result: 'success',
-  });
+    await recordMapping(mapping);
 
-  return mapping;
+    logger.info({
+      event: existing ? 'timesheet.updated' : 'timesheet.created',
+      direction: 'kimai-to-jira',
+      jiraIssueKey: change.jiraIssueKey,
+      jiraWorklogId: worklog.id,
+      kimaiTimesheetId: change.kimaiTimesheetId,
+      result: 'success',
+    });
+
+    return mapping;
+  } finally {
+    if (creationClaimed) {
+      await releaseKimaiTimesheetCreation(change.kimaiTimesheetId);
+    }
+  }
 }
 
 export function normalizeKimaiDescription(

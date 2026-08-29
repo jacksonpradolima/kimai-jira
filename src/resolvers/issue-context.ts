@@ -11,10 +11,29 @@ const resolver = new Resolver();
  * Returns today's tracked time summary for the current issue context, used
  * to render the `jira:issueContext` panel.
  */
-resolver.define('getIssueTimerState', async () => {
+resolver.define('getIssueTimerState', async (request) => {
   const config = await getKimaiConfig();
-  if (!config) {
+  const apiToken = await getKimaiApiToken();
+  const accountId = request.context.accountId as string | undefined;
+  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
+  if (!config || !apiToken) {
     return { configured: false };
+  }
+
+  const issueKey = (request.payload as { issueKey?: string }).issueKey;
+  let runningTimesheet: { id: number } | undefined;
+  if (userMapping?.enabled && issueKey) {
+    try {
+      const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
+      const activeTimesheets = await client.getActiveTimesheets(userMapping.kimaiUserId);
+      const issueMarker = `[${issueKey}]`;
+      const active = activeTimesheets.find((timesheet) =>
+        timesheet.description?.startsWith(issueMarker),
+      );
+      runningTimesheet = active ? { id: active.id } : undefined;
+    } catch {
+      // Keep the issue panel available when active-timer lookup is unavailable.
+    }
   }
 
   return {
@@ -22,6 +41,7 @@ resolver.define('getIssueTimerState', async () => {
     kimaiUrl: config.url,
     defaultProjectId: config.defaultProjectId,
     defaultActivityId: config.defaultActivityId,
+    runningTimesheet,
   };
 });
 

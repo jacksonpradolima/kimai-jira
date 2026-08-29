@@ -15,6 +15,7 @@ function buildClient(overrides: Partial<KimaiClient> = {}): KimaiClient {
   return {
     getCurrentUser: jest.fn(),
     getTimesheet: jest.fn(),
+    getActiveTimesheets: jest.fn(),
     createTimesheet: jest.fn().mockResolvedValue({ id: 8291 }),
     updateTimesheet: jest.fn().mockResolvedValue({ id: 8291 }),
     deleteTimesheet: jest.fn(),

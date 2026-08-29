@@ -93,7 +93,7 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
   });
 }
 
-function jiraCommentToText(comment: unknown): string | undefined {
+export function jiraCommentToText(comment: unknown): string | undefined {
   if (typeof comment === 'string') {
     return comment;
   }
@@ -102,21 +102,27 @@ function jiraCommentToText(comment: unknown): string | undefined {
     return undefined;
   }
 
-  const text: string[] = [];
-  const visit = (node: unknown): void => {
+  const visit = (node: unknown): string => {
     if (!node || typeof node !== 'object') {
-      return;
+      return '';
     }
 
-    const value = node as { text?: unknown; content?: unknown };
+    const value = node as { type?: unknown; text?: unknown; content?: unknown };
     if (typeof value.text === 'string') {
-      text.push(value.text);
+      return value.text;
     }
-    if (Array.isArray(value.content)) {
-      value.content.forEach(visit);
+    if (value.type === 'hardBreak') {
+      return '\n';
     }
+
+    const text = Array.isArray(value.content) ? value.content.map(visit).join('') : '';
+    return isAdfBlock(value.type) && text && !text.endsWith('\n') ? `${text}\n` : text;
   };
 
-  visit(comment);
-  return text.length > 0 ? text.join('') : undefined;
+  const text = visit(comment).replace(/\n$/, '');
+  return text || undefined;
+}
+
+function isAdfBlock(type: unknown): boolean {
+  return type === 'paragraph' || type === 'heading' || type === 'blockquote' || type === 'codeBlock';
 }

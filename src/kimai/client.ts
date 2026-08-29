@@ -12,6 +12,7 @@ import { KimaiApiError } from '../shared/errors';
 export interface KimaiClient {
   getCurrentUser(): Promise<KimaiUser>;
   getTimesheet(id: number): Promise<KimaiTimesheet>;
+  getActiveTimesheets(userId: number): Promise<KimaiTimesheet[]>;
   createTimesheet(input: CreateTimesheetInput): Promise<KimaiTimesheet>;
   updateTimesheet(id: number, input: UpdateTimesheetInput): Promise<KimaiTimesheet>;
   deleteTimesheet(id: number): Promise<void>;
@@ -78,6 +79,10 @@ export class HttpKimaiClient implements KimaiClient {
 
   getTimesheet(id: number): Promise<KimaiTimesheet> {
     return this.request<KimaiTimesheet>(`/api/timesheets/${id}`);
+  }
+
+  getActiveTimesheets(userId: number): Promise<KimaiTimesheet[]> {
+    return this.request<KimaiTimesheet[]>(`/api/timesheets?user=${userId}&active=1`);
   }
 
   createTimesheet(input: CreateTimesheetInput): Promise<KimaiTimesheet> {

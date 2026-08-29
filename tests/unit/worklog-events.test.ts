@@ -14,7 +14,7 @@ jest.mock('../../src/sync/jira-to-kimai', () => ({
   syncJiraWorklogToKimai: mockSyncJiraWorklogToKimai,
 }));
 
-import { handler } from '../../src/jira/worklog-events';
+import { handler, jiraCommentToText } from '../../src/jira/worklog-events';
 
 describe('Jira worklog event handler', () => {
   beforeEach(() => {
@@ -56,5 +56,24 @@ describe('Jira worklog event handler', () => {
         comment: 'Investigation',
       }),
     );
+  });
+
+  it('preserves paragraph and hard-break boundaries in ADF comments', () => {
+    expect(
+      jiraCommentToText({
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'First' }] },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'Second' },
+              { type: 'hardBreak' },
+              { type: 'text', text: 'Third' },
+            ],
+          },
+        ],
+      }),
+    ).toBe('First\nSecond\nThird');
   });
 });

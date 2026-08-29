@@ -14,6 +14,10 @@ function byJiraWorklogReservationKey(jiraWorklogId: string): string {
   return `worklog:reservation:jira:${jiraWorklogId}`;
 }
 
+function byKimaiTimesheetReservationKey(kimaiTimesheetId: number): string {
+  return `worklog:reservation:kimai:${kimaiTimesheetId}`;
+}
+
 /**
  * Persists a worklog <-> timesheet mapping, indexed from both sides so it
  * can be looked up regardless of which system triggered the sync.
@@ -53,6 +57,29 @@ export async function claimJiraWorklogCreation(jiraWorklogId: string): Promise<b
 
 export async function releaseJiraWorklogCreation(jiraWorklogId: string): Promise<void> {
   await kvs.delete(byJiraWorklogReservationKey(jiraWorklogId));
+}
+
+export async function claimKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<boolean> {
+  try {
+    await kvs.set(
+      byKimaiTimesheetReservationKey(kimaiTimesheetId),
+      { claimedAt: new Date().toISOString() },
+      {
+        keyPolicy: 'FAIL_IF_EXISTS',
+        ttl: { value: 5, unit: 'MINUTES' },
+      },
+    );
+    return true;
+  } catch (error) {
+    if (error instanceof ForgeKvsAPIError && error.responseDetails.status === 409) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+export async function releaseKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<void> {
+  await kvs.delete(byKimaiTimesheetReservationKey(kimaiTimesheetId));
 }
 
 export async function getMappingByJiraWorklogId(
