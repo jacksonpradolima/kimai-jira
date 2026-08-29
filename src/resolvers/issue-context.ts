@@ -28,6 +28,7 @@ resolver.define('getIssueTimerState', async (request) => {
 
   const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
   let runningTimesheet: { id: number; begin: string } | undefined;
+  let timerUnavailable = false;
   if (userMapping?.enabled && issueKey) {
     try {
       const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
@@ -38,7 +39,7 @@ resolver.define('getIssueTimerState', async (request) => {
       );
       runningTimesheet = active ? { id: active.id, begin: active.begin } : undefined;
     } catch {
-      // Keep the issue panel available when active-timer lookup is unavailable.
+      timerUnavailable = true;
     }
   }
 
@@ -48,6 +49,7 @@ resolver.define('getIssueTimerState', async (request) => {
     defaultProjectId: config.defaultProjectId,
     defaultActivityId: config.defaultActivityId,
     runningTimesheet,
+    timerUnavailable,
   };
 });
 

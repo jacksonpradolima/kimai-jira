@@ -1,5 +1,6 @@
 import { JiraClient } from '../../jira/client';
 import { syncKimaiTimesheetToJira } from '../../sync/kimai-to-jira';
+import { getMappingByKimaiTimesheetId } from '../../sync/mapping';
 import { KimaiTimesheetPayload, resolveIssueKey } from './timesheet-created';
 
 /**
@@ -11,8 +12,12 @@ export async function handleTimesheetUpdated(
   client: JiraClient,
   payload: KimaiTimesheetPayload,
 ): Promise<void> {
-  const jiraIssueKey = resolveIssueKey(payload);
-  if (!jiraIssueKey || !payload.end) {
+  if (!payload.end) {
+    return;
+  }
+  const jiraIssueKey = resolveIssueKey(payload)
+    ?? (await getMappingByKimaiTimesheetId(payload.id))?.jiraIssueKey;
+  if (!jiraIssueKey) {
     return;
   }
 

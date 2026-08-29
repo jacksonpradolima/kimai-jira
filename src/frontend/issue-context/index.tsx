@@ -8,6 +8,7 @@ interface TimerState {
   defaultProjectId?: number;
   defaultActivityId?: number;
   runningTimesheet?: Timesheet;
+  timerUnavailable?: boolean;
 }
 
 interface Timesheet {
@@ -129,15 +130,21 @@ const App = () => {
         </TabList>
         <TabPanel>
           <Stack space="space.100">
-            <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
-            {runningTimesheet ? (
-              <Button appearance="primary" onClick={handleStop}>
-                Stop
-              </Button>
+            {state.timerUnavailable ? (
+              <Text>Unable to verify the active Kimai timer. Try again shortly.</Text>
             ) : (
-              <Button appearance="primary" onClick={handleStart}>
-                Start
-              </Button>
+              <>
+                <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
+                {runningTimesheet ? (
+                  <Button appearance="primary" onClick={handleStop}>
+                    Stop
+                  </Button>
+                ) : (
+                  <Button appearance="primary" onClick={handleStart}>
+                    Start
+                  </Button>
+                )}
+              </>
             )}
             {error && <Text>{error}</Text>}
           </Stack>

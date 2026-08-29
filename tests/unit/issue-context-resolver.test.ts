@@ -86,6 +86,18 @@ describe('issue context resolver', () => {
     }));
   });
 
+  it('marks the timer unavailable when active-timesheet lookup fails', async () => {
+    mockGetActiveTimesheets.mockRejectedValue(new Error('Kimai unavailable'));
+    const getIssueTimerState = (handler as unknown as typeof mockDefinitions).getIssueTimerState;
+
+    const result = await getIssueTimerState({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {},
+    });
+
+    expect(result).toEqual(expect.objectContaining({ timerUnavailable: true }));
+  });
+
   it('stops only a timer owned by the invoking Jira user mapping', async () => {
     const stopTimer = (handler as unknown as typeof mockDefinitions).stopTimer;
     const result = await stopTimer({
