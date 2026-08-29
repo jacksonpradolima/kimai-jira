@@ -61,7 +61,10 @@ describe('syncJiraWorklogToKimai', () => {
 
     expect(client.createTimesheet).toHaveBeenCalledTimes(1);
     expect(client.createTimesheet).toHaveBeenCalledWith(
-      expect.objectContaining({ user: baseChange.kimaiUserId }),
+      expect.objectContaining({
+        user: baseChange.kimaiUserId,
+        description: '[kimai-jira-worklog:100271] [BA-3] 1-1 Meetings',
+      }),
     );
     expect(mapping?.kimaiTimesheetId).toBe(8291);
     expect(mapping?.jiraWorklogId).toBe('100271');

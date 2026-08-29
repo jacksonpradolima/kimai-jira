@@ -1,6 +1,7 @@
 import { KimaiClient } from '../kimai/client';
 import { WorklogMapping } from '../shared/types';
 import { logger } from '../shared/logger';
+import { formatJiraWorklogCorrelation } from './correlation';
 import {
   computeContentHash,
   mergeMapping,
@@ -107,7 +108,6 @@ export async function syncJiraWorklogToKimai(
       return existing;
     }
 
-    const description = `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
     const endIso = new Date(startedMs + change.timeSpentSeconds * 1000).toISOString();
     const createdTimesheet = !existing;
     if (
@@ -118,6 +118,9 @@ export async function syncJiraWorklogToKimai(
     ) {
       throw new Error('Kimai user, project, and activity are required to create a timesheet.');
     }
+    const description = createdTimesheet
+      ? `${formatJiraWorklogCorrelation(change.jiraWorklogId)} [${change.jiraIssueKey}] ${change.comment ?? ''}`.trim()
+      : `[${change.jiraIssueKey}] ${change.comment ?? ''}`.trim();
     const timesheet = existing
       ? await client.updateTimesheet(existing.kimaiTimesheetId, {
           begin: started,

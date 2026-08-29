@@ -3,6 +3,7 @@ import { HttpKimaiClient } from '../kimai/client';
 import { getKimaiConfig } from '../storage/config';
 import { getKimaiApiToken } from '../storage/secrets';
 import { getUserMapping } from '../storage/users';
+import { claimTimerStart, releaseTimerStart } from '../storage/timers';
 import { toSafeUserMessage } from '../shared/errors';
 
 const resolver = new Resolver();
@@ -69,8 +70,21 @@ resolver.define('startTimer', async (request) => {
     return { ok: false, error: 'This issue timer requires Kimai defaults and an issue context.' };
   }
 
+  const startClaimed = await claimTimerStart(userMapping.kimaiUserId, issueKey);
+  if (!startClaimed) {
+    return { ok: false, error: 'A timer start is already in progress for this issue.' };
+  }
+
   try {
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
+    const issueMarker = `[${issueKey}]`;
+    const activeTimesheets = await client.getActiveTimesheets(userMapping.kimaiUserId);
+    const existingTimer = activeTimesheets.find((timesheet) =>
+      timesheet.description?.startsWith(issueMarker),
+    );
+    if (existingTimer) {
+      return { ok: true, timesheet: existingTimer };
+    }
     const timesheet = await client.startTimer({
       project: config.defaultProjectId,
       activity: config.defaultActivityId,
@@ -80,6 +94,8 @@ resolver.define('startTimer', async (request) => {
     return { ok: true, timesheet };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
+  } finally {
+    await releaseTimerStart(userMapping.kimaiUserId, issueKey);
   }
 });
 

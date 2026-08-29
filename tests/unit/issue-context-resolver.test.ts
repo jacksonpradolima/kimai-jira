@@ -10,6 +10,8 @@ const mockGetActiveTimesheets = jest.fn();
 const mockGetTimesheet = jest.fn();
 const mockStartTimer = jest.fn();
 const mockStopTimer = jest.fn();
+const mockClaimTimerStart = jest.fn();
+const mockReleaseTimerStart = jest.fn();
 
 mockResolver.define.mockImplementation((key: string, callback) => {
   mockDefinitions[key] = callback;
@@ -23,6 +25,10 @@ jest.mock('@forge/resolver', () => ({
 jest.mock('../../src/storage/config', () => ({ getKimaiConfig: mockGetKimaiConfig }));
 jest.mock('../../src/storage/secrets', () => ({ getKimaiApiToken: mockGetKimaiApiToken }));
 jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping }));
+jest.mock('../../src/storage/timers', () => ({
+  claimTimerStart: mockClaimTimerStart,
+  releaseTimerStart: mockReleaseTimerStart,
+}));
 jest.mock('../../src/kimai/client', () => ({
   HttpKimaiClient: jest.fn(() => ({
     getActiveTimesheets: mockGetActiveTimesheets,
@@ -49,6 +55,8 @@ describe('issue context resolver', () => {
     mockGetTimesheet.mockResolvedValue({ id: 8291, user: 42 });
     mockStartTimer.mockResolvedValue({ id: 8291 });
     mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
+    mockClaimTimerStart.mockResolvedValue(true);
+    mockReleaseTimerStart.mockResolvedValue(undefined);
   });
 
   it('starts issue timers for the invoking Jira user mapping', async () => {
@@ -66,6 +74,38 @@ describe('issue context resolver', () => {
       user: 42,
     });
     expect(result).toEqual({ ok: true, timesheet: { id: 8291 } });
+    expect(mockReleaseTimerStart).toHaveBeenCalledWith(42, 'BA-3');
+  });
+
+  it('does not start a duplicate timer while another start owns the claim', async () => {
+    mockClaimTimerStart.mockResolvedValue(false);
+    const startTimer = (handler as unknown as typeof mockDefinitions).startTimer;
+
+    const result = await startTimer({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {},
+    });
+
+    expect(mockStartTimer).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: 'A timer start is already in progress for this issue.' });
+  });
+
+  it('returns an existing active timer instead of starting another one', async () => {
+    mockGetActiveTimesheets.mockResolvedValue([
+      { id: 8291, begin: '2026-08-29T10:00:00.000Z', description: '[BA-3] Jira issue timer' },
+    ]);
+    const startTimer = (handler as unknown as typeof mockDefinitions).startTimer;
+
+    const result = await startTimer({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {},
+    });
+
+    expect(mockStartTimer).not.toHaveBeenCalled();
+    expect(result).toEqual(expect.objectContaining({
+      ok: true,
+      timesheet: expect.objectContaining({ id: 8291 }),
+    }));
   });
 
   it('restores the active timer for the current issue', async () => {

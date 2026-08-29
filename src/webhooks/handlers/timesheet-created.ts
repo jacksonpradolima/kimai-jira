@@ -1,5 +1,7 @@
 import { JiraClient } from '../../jira/client';
+import { getJiraWorklogCorrelation } from '../../sync/correlation';
 import { syncKimaiTimesheetToJira } from '../../sync/kimai-to-jira';
+import { getMappingByJiraWorklogId } from '../../sync/mapping';
 
 export interface KimaiTimesheetPayload {
   id: number;
@@ -20,8 +22,20 @@ export async function handleTimesheetCreated(
   client: JiraClient,
   payload: KimaiTimesheetPayload,
 ): Promise<void> {
+  if (!payload.end) {
+    return;
+  }
+
+  const correlatedJiraWorklogId = getJiraWorklogCorrelation(payload.description);
+  if (correlatedJiraWorklogId) {
+    const mapping = await getMappingByJiraWorklogId(correlatedJiraWorklogId);
+    if (!mapping || mapping.kimaiTimesheetId !== payload.id) {
+      return;
+    }
+  }
+
   const jiraIssueKey = resolveIssueKey(payload);
-  if (!jiraIssueKey || !payload.end) {
+  if (!jiraIssueKey) {
     return;
   }
 

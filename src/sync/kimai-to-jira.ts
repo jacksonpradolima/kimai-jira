@@ -1,6 +1,7 @@
 import { JiraClient } from '../jira/client';
 import { WorklogMapping } from '../shared/types';
 import { logger } from '../shared/logger';
+import { stripJiraWorklogCorrelation } from './correlation';
 import {
   computeContentHash,
   mergeMapping,
@@ -194,6 +195,7 @@ export function normalizeKimaiDescription(
     return '';
   }
 
+  const withoutCorrelation = stripJiraWorklogCorrelation(description);
   const escapedIssueKey = jiraIssueKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return description.replace(new RegExp(`^\\s*\\[${escapedIssueKey}\\]\\s*`), '');
+  return withoutCorrelation.replace(new RegExp(`^\\s*\\[${escapedIssueKey}\\]\\s*`), '');
 }

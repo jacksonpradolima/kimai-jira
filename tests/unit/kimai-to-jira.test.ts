@@ -57,6 +57,12 @@ describe('normalizeKimaiDescription', () => {
       '[BA-4] 1-1 Meetings',
     );
   });
+
+  it('removes Jira worklog correlations before syncing a description back to Jira', () => {
+    expect(
+      normalizeKimaiDescription('[kimai-jira-worklog:100271] [BA-3] 1-1 Meetings', 'BA-3'),
+    ).toBe('1-1 Meetings');
+  });
 });
 
 describe('syncKimaiTimesheetToJira', () => {
