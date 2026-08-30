@@ -13,7 +13,7 @@ No production Forge or Kimai credentials are required for `npm ci`, `npm run lin
 
 For the complete sequence to register a personal Forge app, configure a test Kimai endpoint,
 deploy to a demo Jira site, use a tunnel, and later promote a tested build, see [Run locally, test
-in Forge, and roll out to your company](run-and-roll-out.md). Keep that guide open for the
+in Forge, and roll out to your company](deployment.md). Keep that guide open for the
 environment boundaries and exact installation commands.
 
 ## Dev Container
@@ -67,7 +67,7 @@ npx forge register kimai-for-jira
 touches the maintainer's production app. Run it only once for a given app: running it again creates
 a different app ID and disconnects the manifest from the previous app's environments and storage.
 Before deployment, also replace the placeholder Kimai hostname in `manifest.yml`; see the
-[end-to-end guide](run-and-roll-out.md#allow-forge-to-call-kimai).
+[end-to-end guide](deployment.md#allow-forge-to-call-kimai).
 
 ## Deploying to a development environment
 

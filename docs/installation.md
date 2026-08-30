@@ -2,7 +2,7 @@
 
 Installation has two distinct paths. Test first on a personal Forge demo site, then deploy the
 company app to Forge production and install it on the company Jira site. The detailed guide is
-[Run locally, test in Forge, and roll out to your company](run-and-roll-out.md).
+[Deployment: local, Forge, and company rollout](deployment.md).
 
 ## Company installation summary
 

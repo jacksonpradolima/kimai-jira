@@ -33,7 +33,7 @@ These checks do not require Forge credentials or access to a real Kimai/Jira sit
 step-by-step guide covers registering your own Forge app, deploying to a disposable demo Jira
 site, testing Kimai synchronization, installing in a company Jira site, and configuring users:
 
-[Run locally, test in Forge, and roll out to your company](docs/run-and-roll-out.md)
+[Deployment: local, Forge, and company rollout](docs/deployment.md)
 
 The short version for a personal development site is:
 

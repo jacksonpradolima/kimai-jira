@@ -14,9 +14,9 @@ It brings a Clockify-like experience to Jira, backed by Kimai instead:
 ## Who is this documentation for?
 
 - **Administrators and app owners** installing the app for a Jira site and a Kimai instance —
-  start with [Run locally, test in Forge, and roll out to your company](run-and-roll-out.md).
+  start with [Deployment: local, Forge, and company rollout](deployment.md).
 - **Developers** contributing code — start with [Development](development.md) and then use the
-  end-to-end [run and roll-out guide](run-and-roll-out.md) to test against Forge.
+  end-to-end [deployment guide](deployment.md) to test against Forge.
 
 ## UI documentation
 

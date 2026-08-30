@@ -1,4 +1,4 @@
-# Run locally, test in Forge, and roll out to your company
+# Deployment: local, Forge, and company rollout
 
 This is the end-to-end guide for taking this repository from a fresh clone to a
 working installation on a company Jira Cloud site. Follow the sections in order:
