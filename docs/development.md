@@ -81,11 +81,15 @@ By default this deploys to the `development` Forge environment. Use `--environme
 ## Installing on a demo site
 
 ```bash
+npx forge site provision
 npx forge install --demo-site
 ```
 
-This creates (or reuses) a disposable Atlassian site for testing, so you never need access to a
-real company Jira site during development.
+The provisioning command creates or returns your active disposable Atlassian site; wait until it
+reports that the site is ready before installing. If provisioning is temporarily unavailable, do
+not install on a company production site as a substitute. Create or use a separate traditional
+Jira Cloud development site, then run `npx forge install --site your-dev-site.atlassian.net --product jira`.
+See [the deployment guide's demo-site recovery steps](deployment.md#3-deploy-and-test-on-a-forge-demo-jira-site).
 
 ## Live reload while developing the UI/resolvers
 

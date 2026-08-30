@@ -40,9 +40,14 @@ The short version for a personal development site is:
 ```bash
 npx forge login
 npx forge register kimai-for-jira-dev
+npx forge site provision
 npx forge deploy --environment development
 npx forge install --environment development --demo-site
 ```
+
+`forge site provision` must finish before `--demo-site` can install the app. If demo-site
+provisioning is temporarily unavailable, use a separate traditional Jira Cloud development site
+with `--site`; the full fallback is in the [deployment guide](docs/deployment.md#3-deploy-and-test-on-a-forge-demo-jira-site).
 
 ## UI Preview
 

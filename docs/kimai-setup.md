@@ -17,7 +17,7 @@ permissions:
   external:
     fetch:
       backend:
-        - https://kimai.example.com
+        - address: https://kimai.example.com
 ```
 
 Replace the placeholder with your real Kimai hostname before deploying. Never commit a URL that

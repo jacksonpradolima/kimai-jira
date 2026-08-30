@@ -9,14 +9,15 @@
 #   the placeholder before deploying; never commit real production URLs
 #   that embed credentials.
 app:
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  id: ari:cloud:ecosystem::app/11111111-1111-4111-8111-111111111111
   runtime:
-    name: nodejs20.x
+    name: nodejs24.x
 
 modules:
   jira:issueContext:
     - key: kimai-issue-context
       title: Kimai
+      label: Kimai
       render: native
       resource: issue-context
       resolver:
@@ -44,19 +45,19 @@ modules:
 
   function:
     - key: issue-context-resolver
-      handler: src/resolvers/issue-context.handler
+      handler: resolvers/issue-context.handler
     - key: configuration-resolver
-      handler: src/resolvers/configuration.handler
+      handler: resolvers/configuration.handler
     - key: jira-worklog-handler
-      handler: src/jira/worklog-events.handler
+      handler: jira/worklog-events.handler
     - key: kimai-webhook-handler
-      handler: src/webhooks/kimai-webhook.handler
+      handler: webhooks/kimai-webhook.handler
 
 resources:
   - key: issue-context
-    path: src/frontend/issue-context
+    path: src/frontend/issue-context/index.tsx
   - key: admin
-    path: src/frontend/admin
+    path: src/frontend/admin/index.tsx
 
 permissions:
   scopes:
@@ -66,4 +67,4 @@ permissions:
   external:
     fetch:
       backend:
-        - https://kimai.example.com
+        - address: https://kimai.example.com

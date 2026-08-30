@@ -35,14 +35,20 @@ npm test
 
 `forge lint`, `forge deploy` and `forge install` need *a* Atlassian account, but never the
 production one used by the maintainer's real Jira site. See [Development](development.md) for the
-full `forge register` / `forge deploy` / `forge install --demo-site` walkthrough.
+full `forge register` / demo-site provisioning / `forge deploy` / `forge install --demo-site`
+walkthrough.
 
 ```bash
 npx forge login
 npx forge register kimai-for-jira
+npx forge site provision
 npx forge deploy
 npx forge install --demo-site
 ```
+
+If demo-site provisioning is unavailable, use a separate traditional Jira Cloud development site
+with `npx forge install --site your-dev-site.atlassian.net --product jira`; do not substitute a
+company production site. See [Deployment](deployment.md#3-deploy-and-test-on-a-forge-demo-jira-site).
 
 ## Next steps
 

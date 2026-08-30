@@ -19,8 +19,19 @@ The app requests the following scopes (declared in `manifest.yml`):
 Use a free Atlassian developer site rather than a production Jira instance while developing:
 
 ```bash
+npx forge site provision
 npx forge install --demo-site
 ```
+
+Wait for provisioning to finish before installation. If the demo-site pool is temporarily
+unavailable, install on a separate traditional development site instead:
+
+```bash
+npx forge install --site your-dev-site.atlassian.net --product jira
+```
+
+See [the deployment guide](deployment.md#3-deploy-and-test-on-a-forge-demo-jira-site) for the
+safe fallback and retry steps.
 
 ## Where the app appears
 

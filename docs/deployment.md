@@ -132,7 +132,7 @@ permissions:
   external:
     fetch:
       backend:
-        - https://kimai-test.example.com
+        - address: https://kimai-test.example.com
 ```
 
 Forge denies outbound network calls unless the host is listed there. Use only the
@@ -143,8 +143,15 @@ upgrade.
 
 ## 3. Deploy and test on a Forge demo Jira site
 
-Deploy to the default development environment and install it on a disposable demo
-site:
+Before using `--demo-site`, provision a disposable development site. This is a separate
+operation from deployment:
+
+```bash
+npx forge site provision
+```
+
+Wait for the CLI to report the site as ready, then deploy to the default development environment
+and install the app:
 
 ```bash
 npx forge lint
@@ -152,8 +159,9 @@ npx forge deploy --environment development
 npx forge install --environment development --demo-site
 ```
 
-The install command provisions or reuses a demo Jira site. It is safe for development
-and does not install anything in your company Jira. After installation:
+`--demo-site` resolves your active demo Jira site. It is safe for development and does not install
+anything in your company Jira. Use `--upgrade` only when this app has already been installed on
+that same site; it cannot create or locate a missing demo site. After installation:
 
 1. Open the demo Jira site and create or open an issue.
 2. Confirm that the **Kimai (DEVELOPMENT)** issue panel appears in the issue view.
@@ -175,6 +183,27 @@ With a tunnel running, invocations from the development installation use your lo
 code. Deploy again before testing a change without the tunnel, before using staging,
 or before promoting the change to production. Forge tunnels are not available in
 staging or production.
+
+### Demo-site provisioning is unavailable
+
+The demo-site pool is operated by Atlassian. An error such as `Demo site provisioning is
+temporarily unavailable` (including `No demo site found` from `forge install --demo-site`) is not
+a problem with this repository or the deployed app.
+
+1. Run `npx forge site provision` again later. Provisioning can continue in the background; the
+   same command reports an active site when it becomes ready.
+2. If the service remains unavailable, create a traditional Atlassian Cloud development site at
+   [Atlassian Cloud developer sites](https://go.atlassian.com/cloud-dev) using the same Atlassian
+   account. Complete its setup and ensure you are a Jira administrator there.
+3. Install the development deployment on that non-production site instead:
+
+   ```bash
+   npx forge install --environment development --site your-dev-site.atlassian.net --product jira
+   ```
+
+Do not use a company production Jira site as an ad-hoc development substitute. If you must use a
+company-owned non-production site, obtain the Jira administrator's approval first. Keep the Forge
+environment as `development` and use test Kimai credentials/data.
 
 ### Test Kimai → Jira synchronization
 
