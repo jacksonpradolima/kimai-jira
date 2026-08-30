@@ -1,3 +1,12 @@
+[![Documentation](https://img.shields.io/badge/Docs-Kimai%20for%20Jira-3D9970?style=flat-square)](https://jacksonpradolima.github.io/kimai-jira/)
+[![CI](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/ci.yml/badge.svg)](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/ci.yml)
+[![Documentation workflow](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/docs.yml/badge.svg)](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/docs.yml)
+[![Release](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/release.yml/badge.svg)](https://github.com/jacksonpradolima/kimai-jira/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/jacksonpradolima/kimai-jira?display_name=tag&sort=semver&style=flat-square)](https://github.com/jacksonpradolima/kimai-jira/releases)
+[![Node.js 22](https://img.shields.io/badge/node-22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Atlassian Forge](https://img.shields.io/badge/Atlassian-Forge-1868DB?style=flat-square&logo=atlassian&logoColor=white)](https://developer.atlassian.com/platform/forge/)
+[![License](https://img.shields.io/github/license/jacksonpradolima/kimai-jira?style=flat-square)](LICENSE)
+
 # Kimai for Jira
 
 Open-source [Atlassian Forge](https://developer.atlassian.com/platform/forge/) app that

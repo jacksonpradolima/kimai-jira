@@ -17,6 +17,13 @@ const checkMode = process.argv.includes('--check');
 const generatedReadme = '# Generated UI assets\n\n**AUTO-GENERATED — DO NOT EDIT MANUALLY.** Run `npm run docs:ui` to recreate every PNG in this directory from the production UI views and deterministic fixtures.\n';
 let forgeReconciler: { render: (element: UiDocumentationFixture['element']) => void };
 let fixtures: UiDocumentationFixture[];
+const manifestFileName = 'manifest.json';
+const documentationSources = [
+  'scripts/ui-docs/generate.ts',
+  'scripts/ui-docs/fixtures.tsx',
+  'src/frontend/admin/AdminView.tsx',
+  'src/frontend/issue-context/IssueContextView.tsx',
+];
 
 function escapeHtml(value: unknown): string {
   return String(value)
@@ -124,14 +131,33 @@ async function createScreenshots(outputDirectory: string): Promise<void> {
   }
 }
 
-async function identicalOutputs(left: string, right: string): Promise<boolean> {
-  const leftFiles = (await readdir(left)).sort();
-  const rightFiles = existsSync(right) ? (await readdir(right)).sort() : [];
-  if (leftFiles.join('\n') !== rightFiles.join('\n')) return false;
-  return Promise.all(leftFiles.map(async (file) => {
-    const [first, second] = await Promise.all([readFile(join(left, file)), readFile(join(right, file))]);
-    return createHash('sha256').update(first).digest('hex') === createHash('sha256').update(second).digest('hex');
-  })).then((results) => results.every(Boolean));
+function hash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function generatedManifest(): Promise<string> {
+  const [sourceFiles, documents] = await Promise.all([
+    Promise.all(documentationSources.map(async (file) =>
+      (await readFile(resolve(file), 'utf8')).replace(/\r\n/g, '\n'),
+    )),
+    Promise.all(fixtures.map(async (fixture) => [
+      fixture.fileName,
+      hash(documentationShell(fixture, renderNode(await renderForgeDocument(fixture.element)))),
+    ] as const)),
+  ]);
+  return `${JSON.stringify({
+    schemaVersion: 1,
+    sourceHash: hash(sourceFiles.join('\n--- UI DOC SOURCE ---\n')),
+    fixtures: Object.fromEntries(documents),
+  }, null, 2)}\n`;
+}
+
+async function generatedAssetsMatch(expectedManifest: string): Promise<boolean> {
+  const expectedFiles = ['README.md', manifestFileName, ...fixtures.map((fixture) => fixture.fileName)].sort();
+  const actualFiles = existsSync(generatedDirectory) ? (await readdir(generatedDirectory)).sort() : [];
+  if (actualFiles.join('\n') !== expectedFiles.join('\n')) return false;
+  const actualManifest = await readFile(join(generatedDirectory, manifestFileName), 'utf8');
+  return actualManifest === expectedManifest;
 }
 
 async function main(): Promise<void> {
@@ -142,16 +168,18 @@ async function main(): Promise<void> {
   };
   ({ default: forgeReconciler } = await import('@forge/react'));
   ({ uiDocumentationFixtures: fixtures } = await import('./fixtures'));
+  const manifest = await generatedManifest();
+  if (checkMode) {
+    if (!await generatedAssetsMatch(manifest)) {
+      throw new Error('UI documentation is out of date. Run:\n\n  npm run docs:ui\n\nand commit the regenerated assets.');
+    }
+    return;
+  }
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'kimai-jira-ui-docs-'));
   try {
     await createScreenshots(temporaryDirectory);
     await writeFile(join(temporaryDirectory, 'README.md'), generatedReadme);
-    if (checkMode) {
-      if (!await identicalOutputs(temporaryDirectory, generatedDirectory)) {
-        throw new Error('UI documentation is out of date. Run:\n\n  npm run docs:ui\n\nand commit the regenerated assets.');
-      }
-      return;
-    }
+    await writeFile(join(temporaryDirectory, manifestFileName), manifest);
     await rm(generatedDirectory, { recursive: true, force: true });
     // Rename is deliberately avoided because temp and workspace may be different volumes on Windows.
     const files = await readdir(temporaryDirectory);

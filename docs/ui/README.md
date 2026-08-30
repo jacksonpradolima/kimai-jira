@@ -66,7 +66,8 @@ npm run docs:ui
 npm run docs:ui:check
 ```
 
-`docs:ui` replaces the generated PNGs. `docs:ui:check` renders all fixtures into a temporary
-directory and compares their SHA-256 hashes and file names with `docs/ui/generated/`. It fails with
-an instruction to run `npm run docs:ui` when a frontend layout or fixture change makes committed
-documentation stale. GitHub Actions installs Chromium and runs that check after the normal tests.
+`docs:ui` replaces the generated PNGs and their `manifest.json`. `docs:ui:check` recreates the
+platform-independent manifest from the production Forge view trees and relevant source files. It
+fails when a frontend layout, fixture, or documentation renderer change makes committed assets
+stale, without comparing platform-specific browser PNG bytes. GitHub Actions runs that check after
+the normal tests.
