@@ -10,12 +10,20 @@ function byKimaiTimesheetKey(kimaiTimesheetId: number): string {
   return `worklog:kimai:${kimaiTimesheetId}`;
 }
 
-function byJiraWorklogReservationKey(jiraWorklogId: string): string {
-  return `worklog:reservation:jira:${jiraWorklogId}`;
+function byJiraWorklogCreationReservationKey(jiraWorklogId: string): string {
+  return `worklog:reservation:creation:jira:${jiraWorklogId}`;
 }
 
-function byKimaiTimesheetReservationKey(kimaiTimesheetId: number): string {
-  return `worklog:reservation:kimai:${kimaiTimesheetId}`;
+function byJiraWorklogSyncReservationKey(jiraWorklogId: string): string {
+  return `worklog:reservation:sync:jira:${jiraWorklogId}`;
+}
+
+function byKimaiTimesheetCreationReservationKey(kimaiTimesheetId: number): string {
+  return `worklog:reservation:creation:kimai:${kimaiTimesheetId}`;
+}
+
+function byKimaiTimesheetSyncReservationKey(kimaiTimesheetId: number): string {
+  return `worklog:reservation:sync:kimai:${kimaiTimesheetId}`;
 }
 
 function pendingJiraWorklogCreationKey(kimaiTimesheetId: number): string {
