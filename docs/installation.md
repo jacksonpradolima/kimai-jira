@@ -1,51 +1,25 @@
 # Installation
 
-## 1. Register the app in your own Forge environment
+Installation has two distinct paths. Test first on a personal Forge demo site, then deploy the
+company app to Forge production and install it on the company Jira site. The detailed guide is
+[Run locally, test in Forge, and roll out to your company](run-and-roll-out.md).
+
+## Company installation summary
+
+From a company-owned Forge app, after setting the production Kimai hostname in `manifest.yml`:
 
 ```bash
-npx forge register kimai-for-jira
+npx forge deploy --environment production
+npx forge install --environment production --site your-company.atlassian.net --product jira
 ```
 
-This creates (or attaches) a Forge app under your own Atlassian developer account and updates the
-placeholder `app.id` in `manifest.yml`.
+The installer must be a Jira site administrator (or have the required Forge installation
+permission). Review the requested scopes before confirming.
 
-## 2. Deploy to a Forge environment
+After installation, the Jira administrator opens **Jira administration → Apps → Kimai
+Integration** to set the Kimai URL and optional defaults, generates the Kimai webhook secret, and
+gives the URL/secret to the Kimai administrator. Each user then opens an issue's **Kimai** panel
+and uses **Manage Kimai connection** to store their own personal Kimai API token.
 
-```bash
-npx forge deploy
-```
-
-## 3. Install on a Jira site
-
-For evaluation, install on a disposable Atlassian demo site instead of a real company site:
-
-```bash
-npx forge install --demo-site
-```
-
-To install on a specific existing site instead:
-
-```bash
-npx forge install --site your-site.atlassian.net --product jira
-```
-
-## 4. Configure the Kimai connection
-
-Once installed, open **Jira administration → Apps → Kimai Integration** and provide:
-
-- the Kimai base URL;
-- optional default project/activity IDs used by Jira → Kimai syncs;
-
-Then each person using the integration opens a Jira issue, selects **Manage Kimai connection**, and
-adds their own Kimai API token. The app validates it with Kimai and automatically identifies the
-matching Kimai user. Tokens are encrypted in Forge Secret Store, never written to Git, and are not
-visible to administrators or other users.
-
-The current UI does not yet expose every documented toggle; see [Configuration](configuration.md)
-for the supported settings today.
-
-## 5. Point Kimai webhooks at the app
-
-After configuration, the admin page shows the Forge web trigger URL. Configure this URL, together
-with the generated webhook secret, in your Kimai instance so Kimai timesheet changes flow back
-into Jira. See [Kimai Setup](kimai-setup.md).
+See [Configuration](configuration.md) for what each setting does and [Kimai Setup](kimai-setup.md)
+for the webhook setup.

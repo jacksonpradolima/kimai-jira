@@ -13,10 +13,10 @@ It brings a Clockify-like experience to Jira, backed by Kimai instead:
 
 ## Who is this documentation for?
 
-- **Administrators** installing and configuring the app for a Jira site and a Kimai instance —
-  start with [Getting Started](getting-started.md) and [Installation](installation.md).
-- **Developers** contributing code — start with [Development](development.md) and
-  [Architecture](architecture.md).
+- **Administrators and app owners** installing the app for a Jira site and a Kimai instance —
+  start with [Run locally, test in Forge, and roll out to your company](run-and-roll-out.md).
+- **Developers** contributing code — start with [Development](development.md) and then use the
+  end-to-end [run and roll-out guide](run-and-roll-out.md) to test against Forge.
 
 ## UI documentation
 

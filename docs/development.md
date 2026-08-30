@@ -11,6 +11,11 @@ npm ci
 No production Forge or Kimai credentials are required for `npm ci`, `npm run lint`,
 `npm run typecheck` or `npm test`.
 
+For the complete sequence to register a personal Forge app, configure a test Kimai endpoint,
+deploy to a demo Jira site, use a tunnel, and later promote a tested build, see [Run locally, test
+in Forge, and roll out to your company](run-and-roll-out.md). Keep that guide open for the
+environment boundaries and exact installation commands.
+
 ## Dev Container
 
 The repository includes a reproducible [Dev Container](https://containers.dev/) for VS Code and
@@ -59,7 +64,10 @@ npx forge register kimai-for-jira
 ```
 
 `forge register` updates `manifest.yml` with an app id scoped to your own account — this never
-touches the maintainer's production app.
+touches the maintainer's production app. Run it only once for a given app: running it again creates
+a different app ID and disconnects the manifest from the previous app's environments and storage.
+Before deployment, also replace the placeholder Kimai hostname in `manifest.yml`; see the
+[end-to-end guide](run-and-roll-out.md#allow-forge-to-call-kimai).
 
 ## Deploying to a development environment
 

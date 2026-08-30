@@ -18,7 +18,7 @@ Full documentation (installation, configuration, architecture, development, secu
 under [`/docs`](docs/index.md) and is published at
 <https://jacksonpradolima.github.io/kimai-jira/>.
 
-## Quick start (development)
+## Run locally, test in Forge, and install for your company
 
 ```bash
 git clone https://github.com/jacksonpradolima/kimai-jira.git
@@ -29,15 +29,19 @@ npm run typecheck
 npm test
 ```
 
-None of the above require production Forge credentials or access to a real Kimai/Jira site. To
-run the app against your own free Atlassian developer environment, see
-[docs/development.md](docs/development.md):
+These checks do not require Forge credentials or access to a real Kimai/Jira site. The complete,
+step-by-step guide covers registering your own Forge app, deploying to a disposable demo Jira
+site, testing Kimai synchronization, installing in a company Jira site, and configuring users:
+
+[Run locally, test in Forge, and roll out to your company](docs/run-and-roll-out.md)
+
+The short version for a personal development site is:
 
 ```bash
 npx forge login
-npx forge register kimai-for-jira
-npx forge deploy
-npx forge install --demo-site
+npx forge register kimai-for-jira-dev
+npx forge deploy --environment development
+npx forge install --environment development --demo-site
 ```
 
 ## UI Preview

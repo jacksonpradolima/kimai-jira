@@ -1,6 +1,8 @@
 # Getting Started
 
-This page gets a new contributor or administrator up and running quickly.
+This page gets a new contributor or administrator up and running quickly. For the full path from
+this checkout to a company Jira installation, use [Run locally, test in Forge, and roll out to
+your company](run-and-roll-out.md).
 
 ## Prerequisites
 
@@ -44,5 +46,5 @@ npx forge install --demo-site
 
 ## Next steps
 
-- Administrators: continue to [Installation](installation.md).
+- Administrators: continue to [the company rollout guide](run-and-roll-out.md#4-prepare-the-company-rollout).
 - Contributors: continue to [Development](development.md).
