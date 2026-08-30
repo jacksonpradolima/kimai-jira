@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import ForgeReconciler, { Text, Button, Stack, Tabs, Tab, TabList, TabPanel } from '@forge/react';
+import React, { useEffect, useRef, useState } from 'react';
+import ForgeReconciler, { Text, LoadingButton, Stack, Tabs, Tab, TabList, TabPanel } from '@forge/react';
 import { invoke, view } from '@forge/bridge';
 
 interface TimerState {
@@ -39,7 +39,9 @@ const App = () => {
   const [error, setError] = useState<string | undefined>(undefined);
   const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
+  const [isTimerActionPending, setIsTimerActionPending] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const timerActionInFlight = useRef(false);
 
   useEffect(() => {
     view.getContext()
@@ -67,11 +69,16 @@ const App = () => {
   }, [runningTimesheet]);
 
   const handleStart = async () => {
+    if (timerActionInFlight.current) {
+      return;
+    }
     if (!state?.defaultProjectId || !state?.defaultActivityId || !issueKey) {
       setError('Open a Jira issue after setting the default Kimai project and activity.');
       return;
     }
 
+    timerActionInFlight.current = true;
+    setIsTimerActionPending(true);
     try {
       const result = (await invoke('startTimer', {})) as {
         ok?: boolean;
@@ -88,14 +95,19 @@ const App = () => {
       setError(undefined);
     } catch (startError) {
       setError(`Unable to start the Kimai timer: ${String(startError)}`);
+    } finally {
+      timerActionInFlight.current = false;
+      setIsTimerActionPending(false);
     }
   };
 
   const handleStop = async () => {
-    if (!runningTimesheet) {
+    if (!runningTimesheet || timerActionInFlight.current) {
       return;
     }
 
+    timerActionInFlight.current = true;
+    setIsTimerActionPending(true);
     try {
       const result = (await invoke('stopTimer', {
         timesheetId: runningTimesheet.id,
@@ -110,6 +122,9 @@ const App = () => {
       setError(undefined);
     } catch (stopError) {
       setError(`Unable to stop the Kimai timer: ${String(stopError)}`);
+    } finally {
+      timerActionInFlight.current = false;
+      setIsTimerActionPending(false);
     }
   };
 
@@ -136,13 +151,23 @@ const App = () => {
               <>
                 <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
                 {runningTimesheet ? (
-                  <Button appearance="primary" onClick={handleStop}>
+                  <LoadingButton
+                    appearance="primary"
+                    isDisabled={isTimerActionPending}
+                    isLoading={isTimerActionPending}
+                    onClick={handleStop}
+                  >
                     Stop
-                  </Button>
+                  </LoadingButton>
                 ) : (
-                  <Button appearance="primary" onClick={handleStart}>
+                  <LoadingButton
+                    appearance="primary"
+                    isDisabled={isTimerActionPending}
+                    isLoading={isTimerActionPending}
+                    onClick={handleStart}
+                  >
                     Start
-                  </Button>
+                  </LoadingButton>
                 )}
               </>
             )}
