@@ -28,6 +28,8 @@ const mockGetJiraProjectCustomerMapping = jest.fn();
 const mockSaveJiraIssueKimaiTarget = jest.fn();
 const mockSaveJiraProjectCustomerMapping = jest.fn();
 const mockGetIssueDetails = jest.fn();
+const mockClaimJiraIssueKimaiTarget = jest.fn();
+const mockReleaseJiraIssueKimaiTarget = jest.fn();
 
 mockResolver.define.mockImplementation((key: string, callback) => {
   mockDefinitions[key] = callback;
@@ -58,6 +60,8 @@ jest.mock('../../src/storage/issue-targets', () => ({
   getJiraProjectCustomerMapping: mockGetJiraProjectCustomerMapping,
   saveJiraIssueKimaiTarget: mockSaveJiraIssueKimaiTarget,
   saveJiraProjectCustomerMapping: mockSaveJiraProjectCustomerMapping,
+  claimJiraIssueKimaiTarget: mockClaimJiraIssueKimaiTarget,
+  releaseJiraIssueKimaiTarget: mockReleaseJiraIssueKimaiTarget,
 }));
 jest.mock('../../src/kimai/client', () => ({
   HttpKimaiClient: jest.fn(() => ({
@@ -90,7 +94,7 @@ describe('issue context resolver', () => {
     });
     mockGetPersonalKimaiApiToken.mockResolvedValue('token');
     mockGetCurrentUser.mockResolvedValue({ id: 42, username: 'kimai-user' });
-    mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
+    mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, kimaiBaseUrl: 'https://kimai.example.test', enabled: true });
     mockGetActiveTimesheets.mockResolvedValue([]);
     mockGetTimesheet.mockResolvedValue({ id: 8291, user: 42 });
     mockGetCustomers.mockResolvedValue([{ id: 1, name: 'Acme' }]);
@@ -103,6 +107,8 @@ describe('issue context resolver', () => {
     mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
     mockClaimTimerStart.mockResolvedValue(true);
     mockReleaseTimerStart.mockResolvedValue(undefined);
+    mockClaimJiraIssueKimaiTarget.mockResolvedValue(true);
+    mockReleaseJiraIssueKimaiTarget.mockResolvedValue(undefined);
     mockGetJiraIssueKimaiTarget.mockResolvedValue(undefined);
     mockGetJiraProjectCustomerMapping.mockResolvedValue(undefined);
     mockSaveJiraIssueKimaiTarget.mockResolvedValue(undefined);
@@ -130,7 +136,7 @@ describe('issue context resolver', () => {
       user: 42,
     });
     expect(result).toEqual({ ok: true, timesheet: { id: 8291 } });
-    expect(mockReleaseTimerStart).toHaveBeenCalledWith(42, 'BA-3');
+    expect(mockReleaseTimerStart).toHaveBeenCalledWith(42);
   });
 
   it('does not start a duplicate timer while another start owns the claim', async () => {
@@ -143,7 +149,7 @@ describe('issue context resolver', () => {
     });
 
     expect(mockStartTimer).not.toHaveBeenCalled();
-    expect(result).toEqual({ ok: false, error: 'A timer start is already in progress for this issue.' });
+    expect(result).toEqual({ ok: false, error: 'A timer start is already in progress for your Kimai account.' });
   });
 
   it('returns an existing active timer instead of starting another one', async () => {
@@ -288,7 +294,7 @@ describe('issue context resolver', () => {
 
     expect(mockSetPersonalKimaiApiToken).toHaveBeenCalledWith('712020:abc123', 'personal-token');
     expect(mockSaveUserMapping).toHaveBeenCalledWith({
-      jiraAccountId: '712020:abc123', kimaiUserId: 42, kimaiUsername: 'kimai-user', enabled: true,
+      jiraAccountId: '712020:abc123', kimaiUserId: 42, kimaiUsername: 'kimai-user', kimaiBaseUrl: 'https://kimai.example.test', enabled: true,
     });
     expect(result).toEqual(expect.objectContaining({ ok: true, user: { id: 42, username: 'kimai-user' } }));
   });
@@ -324,6 +330,7 @@ describe('issue context resolver', () => {
         date: '2026-08-30',
         startTime: '09:00',
         duration: '01:30:00',
+        timezoneOffsetMinutes: 0,
         tags: ['Routine', 'Billing', 'Routine'],
         billable: true,
       },
@@ -335,7 +342,7 @@ describe('issue context resolver', () => {
       project: 10,
       activity: 20,
       user: 42,
-      description: 'Investigate billing synchronization',
+      description: '[BA-3] Investigate billing synchronization',
       tags: ['Routine', 'Billing'],
       billable: true,
     });

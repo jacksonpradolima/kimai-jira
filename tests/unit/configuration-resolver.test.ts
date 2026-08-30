@@ -64,4 +64,29 @@ describe('configuration resolver', () => {
       defaultActivityId: undefined,
     }));
   });
+
+  it.each([
+    'http://kimai.example.test',
+    'https://user:password@kimai.example.test',
+    'https://kimai.example.test?tenant=one',
+    'https://kimai.example.test#fragment',
+  ])('rejects unsafe Kimai base URLs: %s', async (url) => {
+    const saveConnectionSettings = (handler as unknown as typeof mockDefinitions).saveConnectionSettings;
+
+    await expect(saveConnectionSettings({ payload: { url } })).resolves.toEqual({
+      ok: false, error: 'A valid Kimai URL is required.',
+    });
+    expect(mockSetKimaiConfig).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 1.5, 'not-a-number'])('rejects invalid default resource IDs: %s', async (defaultProjectId) => {
+    const saveConnectionSettings = (handler as unknown as typeof mockDefinitions).saveConnectionSettings;
+
+    await expect(saveConnectionSettings({
+      payload: { url: 'https://kimai.example.test', defaultProjectId },
+    })).resolves.toEqual({
+      ok: false, error: 'The default Kimai project ID must be a positive integer.',
+    });
+    expect(mockSetKimaiConfig).not.toHaveBeenCalled();
+  });
 });

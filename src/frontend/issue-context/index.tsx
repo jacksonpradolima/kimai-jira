@@ -204,9 +204,9 @@ const App = () => {
         date: manualDate,
         startTime: manualStartTime,
         endTime: manualEndTime,
+        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
         tags: manualTags,
         billable: manualBillable,
-        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
       })) as { ok?: boolean; error?: string; timesheet?: { id?: number } };
       if (!result.ok) {
         setManualEntryMessage(result.error ?? 'Unable to add time to Kimai.');

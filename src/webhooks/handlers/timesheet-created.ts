@@ -9,8 +9,9 @@ export interface KimaiTimesheetPayload {
   begin: string;
   end: string | null;
   description?: string;
+  user?: number | { id?: number };
+  modifiedAt?: string;
   meta?: { jiraIssueKey?: string };
-  user?: { id?: number };
 }
 
 /**
@@ -28,6 +29,9 @@ export async function handleTimesheetCreated(
     return;
   }
 
+  const userMapping = await resolveEnabledKimaiUser(payload);
+  if (!userMapping) return;
+
   const correlatedJiraWorklogId = getJiraWorklogCorrelation(payload.description);
   if (correlatedJiraWorklogId) {
     const mapping = await getMappingByJiraWorklogId(correlatedJiraWorklogId);
@@ -41,20 +45,23 @@ export async function handleTimesheetCreated(
     return;
   }
 
-  const userMapping = payload.user?.id !== undefined
-    ? await getUserMappingByKimaiUserId(payload.user.id)
-    : undefined;
-  if (payload.user?.id !== undefined && (!userMapping || !userMapping.enabled)) {
-    return;
-  }
-
   await syncKimaiTimesheetToJira(client, {
     kimaiTimesheetId: payload.id,
     jiraIssueKey,
     begin: payload.begin,
     end: payload.end,
     description: payload.description,
+    modifiedAt: payload.modifiedAt,
+    jiraAuthorAccountId: userMapping.jiraAccountId,
   });
+}
+
+/** Only enabled, explicitly connected Kimai users may create Jira worklogs. */
+export async function resolveEnabledKimaiUser(payload: KimaiTimesheetPayload) {
+  const userId = typeof payload.user === 'number' ? payload.user : payload.user?.id;
+  if (!Number.isInteger(userId) || (userId as number) <= 0) return undefined;
+  const mapping = await getUserMappingByKimaiUserId(userId as number);
+  return mapping?.enabled ? mapping : undefined;
 }
 
 export function resolveIssueKey(payload: KimaiTimesheetPayload): string | undefined {

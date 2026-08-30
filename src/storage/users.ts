@@ -18,16 +18,20 @@ export async function getUserMappingByKimaiUserId(kimaiUserId: number): Promise<
 }
 
 export async function saveUserMapping(mapping: UserMapping): Promise<void> {
-  await Promise.all([
-    kvs.set(userKey(mapping.jiraAccountId), mapping),
-    kvs.set(kimaiUserKey(mapping.kimaiUserId), mapping),
-  ]);
+  const previous = await getUserMapping(mapping.jiraAccountId);
+  const transaction = kvs.transact();
+  if (previous && previous.kimaiUserId !== mapping.kimaiUserId) {
+    transaction.delete(kimaiUserKey(previous.kimaiUserId));
+  }
+  await transaction
+    .set(userKey(mapping.jiraAccountId), mapping)
+    .set(kimaiUserKey(mapping.kimaiUserId), mapping)
+    .execute();
 }
 
 export async function deleteUserMapping(jiraAccountId: string): Promise<void> {
-  const mapping = await getUserMapping(jiraAccountId);
-  await Promise.all([
-    kvs.delete(userKey(jiraAccountId)),
-    mapping ? kvs.delete(kimaiUserKey(mapping.kimaiUserId)) : Promise.resolve(),
-  ]);
+  const previous = await getUserMapping(jiraAccountId);
+  const transaction = kvs.transact().delete(userKey(jiraAccountId));
+  if (previous) transaction.delete(kimaiUserKey(previous.kimaiUserId));
+  await transaction.execute();
 }

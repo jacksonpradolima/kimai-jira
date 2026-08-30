@@ -1,11 +1,13 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
   claimKimaiTimesheetSync: jest.fn().mockResolvedValue(true),
+  claimMappingPairSync: jest.fn().mockResolvedValue(true),
   deletePendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
   getPendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
   releaseKimaiTimesheetSync: jest.fn().mockResolvedValue(undefined),
+  releaseMappingPairSync: jest.fn().mockResolvedValue(undefined),
   savePendingJiraWorklogCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -83,6 +85,7 @@ describe('syncKimaiTimesheetToJira', () => {
     expect(mapping?.jiraIssueId).toBe('10001');
     expect(mapping?.lastHash).toBe(
       computeContentHash({
+        jiraIssueKey: 'BA-3',
         started: baseChange.begin,
         duration: 3600,
         comment: '1-1 Meetings',
@@ -99,6 +102,7 @@ describe('syncKimaiTimesheetToJira', () => {
       origin: 'jira',
       lastSyncedAt: '2026-08-27T09:00:00.000Z',
       lastHash: computeContentHash({
+        jiraIssueKey: 'BA-3',
         started: baseChange.begin,
         duration: 3600,
         comment: '1-1 Meetings',
@@ -119,6 +123,19 @@ describe('syncKimaiTimesheetToJira', () => {
       syncKimaiTimesheetToJira(client, { ...baseChange, begin: 'invalid' }),
     ).rejects.toThrow(RangeError);
     expect(client.createWorklog).not.toHaveBeenCalled();
+    expect(client.updateWorklog).not.toHaveBeenCalled();
+  });
+
+  it('ignores a delayed Kimai revision after a newer one was applied', async () => {
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001', jiraIssueKey: 'BA-3', jiraWorklogId: '100271', kimaiTimesheetId: 8291,
+      origin: 'kimai', lastSyncedAt: '2026-08-27T09:00:00.000Z', lastHash: 'newer',
+      lastKimaiModifiedAt: '2026-08-27T12:00:00.000Z',
+    });
+    const client = buildClient();
+
+    await syncKimaiTimesheetToJira(client, { ...baseChange, modifiedAt: '2026-08-27T11:00:00.000Z' });
+
     expect(client.updateWorklog).not.toHaveBeenCalled();
   });
 
@@ -201,6 +218,7 @@ describe('syncKimaiTimesheetToJira', () => {
       lastHash: 'stale-hash',
     };
     const replacementHash = computeContentHash({
+      jiraIssueKey: 'BA-4',
       started: baseChange.begin,
       duration: 3600,
       comment: '1-1 Meetings',
@@ -245,6 +263,7 @@ describe('syncKimaiTimesheetToJira', () => {
 
   it('recovers a created worklog when mapping persistence fails', async () => {
     const hash = computeContentHash({
+      jiraIssueKey: 'BA-3',
       started: baseChange.begin,
       duration: 3600,
       comment: '1-1 Meetings',

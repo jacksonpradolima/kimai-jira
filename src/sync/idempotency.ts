@@ -56,6 +56,7 @@ export function mergeMapping(
     origin: updates.origin ?? existing?.origin ?? 'jira',
     lastSyncedAt: updates.lastSyncedAt ?? new Date().toISOString(),
     lastHash: updates.lastHash ?? existing?.lastHash,
+    lastKimaiModifiedAt: updates.lastKimaiModifiedAt ?? existing?.lastKimaiModifiedAt,
     pendingJiraWorklogDeletion: Object.prototype.hasOwnProperty.call(
       updates,
       'pendingJiraWorklogDeletion',

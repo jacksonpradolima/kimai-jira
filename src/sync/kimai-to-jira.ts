@@ -10,11 +10,13 @@ import {
 } from './idempotency';
 import {
   claimKimaiTimesheetSync,
+  claimMappingPairSync,
   deletePendingJiraWorklogCreation,
   getMappingByKimaiTimesheetId,
   getPendingJiraWorklogCreation,
   recordMapping,
   releaseKimaiTimesheetSync,
+  releaseMappingPairSync,
   savePendingJiraWorklogCreation,
 } from './mapping';
 
@@ -71,6 +73,8 @@ export interface KimaiTimesheetChange {
   begin: string;
   end: string;
   description?: string;
+  modifiedAt?: string;
+  jiraAuthorAccountId?: string;
 }
 
 /**
@@ -94,6 +98,8 @@ export async function syncKimaiTimesheetToJira(
     throw new Error('Kimai timesheet synchronization is busy; retry the event.');
   }
 
+  let pairClaimed = false;
+  let claimedPair: WorklogMapping | undefined;
   try {
     let existing = await getMappingByKimaiTimesheetId(change.kimaiTimesheetId);
     const pendingCreation = await getPendingJiraWorklogCreation(change.kimaiTimesheetId);
@@ -103,6 +109,11 @@ export async function syncKimaiTimesheetToJira(
       existing = pendingCreation;
     }
     if (existing) {
+      pairClaimed = await claimMappingPairSyncWithRetry(existing);
+      if (!pairClaimed) {
+        throw new Error('Kimai timesheet synchronization is busy; retry the event.');
+      }
+      claimedPair = existing;
       existing = await completePendingJiraWorklogDeletion(client, existing);
     }
 
@@ -113,10 +124,24 @@ export async function syncKimaiTimesheetToJira(
     const timeSpentSeconds = Math.max(0, Math.round((endMs - beginMs) / 1000));
     const comment = normalizeKimaiDescription(change.description, change.jiraIssueKey);
     const hash = computeContentHash({
+      jiraIssueKey: change.jiraIssueKey,
       started: begin,
       duration: timeSpentSeconds,
       comment,
     });
+
+    const modifiedAt = change.modifiedAt ? normalizeSyncTimestamp(change.modifiedAt) : undefined;
+    if (
+      existing?.lastKimaiModifiedAt
+      && modifiedAt
+      && new Date(modifiedAt).getTime() < new Date(existing.lastKimaiModifiedAt).getTime()
+    ) {
+      logger.info({
+        event: 'timesheet.stale_ignored', direction: 'kimai-to-jira',
+        jiraIssueKey: change.jiraIssueKey, kimaiTimesheetId: change.kimaiTimesheetId, result: 'success',
+      });
+      return existing;
+    }
 
     if (shouldSkipSyncEvent(existing, { hash })) {
       logger.info({
@@ -142,6 +167,7 @@ export async function syncKimaiTimesheetToJira(
           started: begin,
           timeSpentSeconds,
           comment,
+          authorAccountId: change.jiraAuthorAccountId,
         });
 
     const pendingJiraWorklogDeletion = issueChanged && existing
@@ -157,6 +183,7 @@ export async function syncKimaiTimesheetToJira(
       kimaiTimesheetId: change.kimaiTimesheetId,
       origin: 'kimai',
       lastHash: hash,
+      lastKimaiModifiedAt: modifiedAt,
       pendingJiraWorklogDeletion,
     });
 
@@ -183,8 +210,19 @@ export async function syncKimaiTimesheetToJira(
 
     return mapping;
   } finally {
+    if (pairClaimed && claimedPair) {
+      await releaseMappingPairSync(claimedPair.jiraWorklogId, claimedPair.kimaiTimesheetId);
+    }
     await releaseKimaiTimesheetSync(change.kimaiTimesheetId);
   }
+}
+
+async function claimMappingPairSyncWithRetry(mapping: WorklogMapping): Promise<boolean> {
+  for (let attempt = 0; attempt < SYNC_CLAIM_RETRY_COUNT; attempt += 1) {
+    if (await claimMappingPairSync(mapping.jiraWorklogId, mapping.kimaiTimesheetId)) return true;
+    await new Promise<void>((resolve) => { setTimeout(resolve, SYNC_CLAIM_RETRY_DELAY_MS); });
+  }
+  return false;
 }
 
 export function normalizeKimaiDescription(

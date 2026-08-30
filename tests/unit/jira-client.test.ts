@@ -86,4 +86,21 @@ describe('ForgeJiraClient', () => {
       comment: { type: 'doc', version: 1, content: [] },
     });
   });
+
+  it('preserves line breaks in Kimai comments as ADF paragraphs', async () => {
+    mockRequestJira.mockResolvedValue(
+      successfulResponse({ id: '100271', issueId: '10001', started: '', timeSpentSeconds: 60 }),
+    );
+
+    await new ForgeJiraClient().createWorklog({
+      issueIdOrKey: 'BA-3', started: '2026-08-27T10:00:00.000Z', timeSpentSeconds: 60,
+      comment: 'First line\nSecond line',
+    });
+
+    const request = mockRequestJira.mock.calls[0][1] as { body: string };
+    expect(JSON.parse(request.body).comment.content).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: 'First line' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Second line' }] },
+    ]);
+  });
 });

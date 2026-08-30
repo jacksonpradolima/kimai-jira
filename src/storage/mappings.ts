@@ -26,6 +26,10 @@ function byKimaiTimesheetSyncReservationKey(kimaiTimesheetId: number): string {
   return `worklog:reservation:sync:kimai:${kimaiTimesheetId}`;
 }
 
+function byMappingPairReservationKey(jiraWorklogId: string, kimaiTimesheetId: number): string {
+  return `worklog:reservation:pair:${jiraWorklogId}:${kimaiTimesheetId}`;
+}
+
 function pendingJiraWorklogCreationKey(kimaiTimesheetId: number): string {
   return `worklog:pending-jira-creation:${kimaiTimesheetId}`;
 }
@@ -56,11 +60,11 @@ export async function saveWorklogMapping(mapping: WorklogMapping): Promise<void>
  * write prevents concurrent event deliveries from creating duplicate entries.
  */
 export async function claimJiraWorklogCreation(jiraWorklogId: string): Promise<boolean> {
-  return claimReservation(byJiraWorklogReservationKey(jiraWorklogId));
+  return claimReservation(byJiraWorklogCreationReservationKey(jiraWorklogId));
 }
 
 export async function claimJiraWorklogSync(jiraWorklogId: string): Promise<boolean> {
-  return claimReservation(byJiraWorklogReservationKey(jiraWorklogId));
+  return claimReservation(byJiraWorklogSyncReservationKey(jiraWorklogId));
 }
 
 async function claimReservation(key: string): Promise<boolean> {
@@ -83,27 +87,42 @@ async function claimReservation(key: string): Promise<boolean> {
 }
 
 export async function releaseJiraWorklogCreation(jiraWorklogId: string): Promise<void> {
-  await kvs.delete(byJiraWorklogReservationKey(jiraWorklogId));
+  await kvs.delete(byJiraWorklogCreationReservationKey(jiraWorklogId));
 }
 
 export async function releaseJiraWorklogSync(jiraWorklogId: string): Promise<void> {
-  await kvs.delete(byJiraWorklogReservationKey(jiraWorklogId));
+  await kvs.delete(byJiraWorklogSyncReservationKey(jiraWorklogId));
+}
+
+/** Serializes updates to an already-linked Jira/Kimai pair in either direction. */
+export async function claimMappingPairSync(
+  jiraWorklogId: string,
+  kimaiTimesheetId: number,
+): Promise<boolean> {
+  return claimReservation(byMappingPairReservationKey(jiraWorklogId, kimaiTimesheetId));
+}
+
+export async function releaseMappingPairSync(
+  jiraWorklogId: string,
+  kimaiTimesheetId: number,
+): Promise<void> {
+  await kvs.delete(byMappingPairReservationKey(jiraWorklogId, kimaiTimesheetId));
 }
 
 export async function claimKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<boolean> {
-  return claimReservation(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+  return claimReservation(byKimaiTimesheetCreationReservationKey(kimaiTimesheetId));
 }
 
 export async function claimKimaiTimesheetSync(kimaiTimesheetId: number): Promise<boolean> {
-  return claimReservation(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+  return claimReservation(byKimaiTimesheetSyncReservationKey(kimaiTimesheetId));
 }
 
 export async function releaseKimaiTimesheetCreation(kimaiTimesheetId: number): Promise<void> {
-  await kvs.delete(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+  await kvs.delete(byKimaiTimesheetCreationReservationKey(kimaiTimesheetId));
 }
 
 export async function releaseKimaiTimesheetSync(kimaiTimesheetId: number): Promise<void> {
-  await kvs.delete(byKimaiTimesheetReservationKey(kimaiTimesheetId));
+  await kvs.delete(byKimaiTimesheetSyncReservationKey(kimaiTimesheetId));
 }
 
 export async function savePendingJiraWorklogCreation(

@@ -1,11 +1,13 @@
 jest.mock('../../src/storage/mappings', () => ({
   saveWorklogMapping: jest.fn().mockResolvedValue(undefined),
   claimJiraWorklogSync: jest.fn().mockResolvedValue(true),
+  claimMappingPairSync: jest.fn().mockResolvedValue(true),
   deletePendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
   getMappingByJiraWorklogId: jest.fn().mockResolvedValue(undefined),
   getMappingByKimaiTimesheetId: jest.fn().mockResolvedValue(undefined),
   getPendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
   releaseJiraWorklogSync: jest.fn().mockResolvedValue(undefined),
+  releaseMappingPairSync: jest.fn().mockResolvedValue(undefined),
   savePendingKimaiTimesheetCreation: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -125,6 +127,7 @@ describe('syncJiraWorklogToKimai', () => {
       origin: 'jira',
       lastSyncedAt: '2026-08-27T09:00:00.000Z',
       lastHash: computeContentHash({
+        jiraIssueKey: change.jiraIssueKey,
         started: '2026-08-27T10:00:00.000Z',
         duration: change.timeSpentSeconds,
         comment: change.comment,
@@ -140,6 +143,7 @@ describe('syncJiraWorklogToKimai', () => {
 
   it('recovers a created timesheet when mapping persistence fails', async () => {
     const hash = computeContentHash({
+      jiraIssueKey: baseChange.jiraIssueKey,
       started: baseChange.started,
       duration: baseChange.timeSpentSeconds,
       comment: baseChange.comment,

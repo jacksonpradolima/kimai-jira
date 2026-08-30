@@ -10,11 +10,13 @@ import {
 } from './idempotency';
 import {
   claimJiraWorklogSync,
+  claimMappingPairSync,
   deletePendingKimaiTimesheetCreation,
   getMappingByJiraWorklogId,
   getPendingKimaiTimesheetCreation,
   recordMapping,
   releaseJiraWorklogSync,
+  releaseMappingPairSync,
   savePendingKimaiTimesheetCreation,
 } from './mapping';
 
@@ -81,6 +83,8 @@ export async function syncJiraWorklogToKimai(
     throw new Error('Jira worklog synchronization is busy; retry the event.');
   }
 
+  let pairClaimed = false;
+  let claimedPair: WorklogMapping | undefined;
   try {
     let existing = await getMappingByJiraWorklogId(change.jiraWorklogId);
     const pendingCreation = await getPendingKimaiTimesheetCreation(change.jiraWorklogId);
@@ -89,9 +93,17 @@ export async function syncJiraWorklogToKimai(
       await deletePendingKimaiTimesheetCreation(change.jiraWorklogId);
       existing = pendingCreation;
     }
+    if (existing) {
+      pairClaimed = await claimMappingPairSyncWithRetry(existing);
+      if (!pairClaimed) {
+        throw new Error('Jira worklog synchronization is busy; retry the event.');
+      }
+      claimedPair = existing;
+    }
     const started = normalizeSyncTimestamp(change.started);
     const startedMs = new Date(started).getTime();
     const hash = computeContentHash({
+      jiraIssueKey: change.jiraIssueKey,
       started,
       duration: change.timeSpentSeconds,
       comment: change.comment ?? '',
@@ -164,6 +176,17 @@ export async function syncJiraWorklogToKimai(
 
     return mapping;
   } finally {
+    if (pairClaimed && claimedPair) {
+      await releaseMappingPairSync(claimedPair.jiraWorklogId, claimedPair.kimaiTimesheetId);
+    }
     await releaseJiraWorklogSync(change.jiraWorklogId);
   }
+}
+
+async function claimMappingPairSyncWithRetry(mapping: WorklogMapping): Promise<boolean> {
+  for (let attempt = 0; attempt < SYNC_CLAIM_RETRY_COUNT; attempt += 1) {
+    if (await claimMappingPairSync(mapping.jiraWorklogId, mapping.kimaiTimesheetId)) return true;
+    await new Promise<void>((resolve) => { setTimeout(resolve, SYNC_CLAIM_RETRY_DELAY_MS); });
+  }
+  return false;
 }

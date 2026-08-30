@@ -30,7 +30,7 @@ describe('Jira worklog event handler', () => {
       defaultActivityId: 2,
     });
     mockGetPersonalKimaiApiToken.mockResolvedValue('token');
-    mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
+    mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, kimaiBaseUrl: 'https://kimai.example.test', enabled: true });
     mockGetMappingByJiraWorklogId.mockResolvedValue(undefined);
   });
 
@@ -79,6 +79,17 @@ describe('Jira worklog event handler', () => {
         ],
       }),
     ).toBe('First\nSecond\nThird');
+  });
+
+  it('preserves visible mention and emoji nodes in ADF comments', () => {
+    expect(jiraCommentToText({
+      type: 'doc', content: [{ type: 'paragraph', content: [
+        { type: 'text', text: 'Worked with ' },
+        { type: 'mention', attrs: { text: '@Alice' } },
+        { type: 'text', text: ' ' },
+        { type: 'emoji', attrs: { shortName: ':wave:' } },
+      ] }],
+    })).toBe('Worked with @Alice :wave:');
   });
 
   it('updates an existing Kimai mapping even when Jira reports the app as the author', async () => {

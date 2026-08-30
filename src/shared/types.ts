@@ -13,6 +13,8 @@ export interface WorklogMapping {
 
   lastSyncedAt: string;
   lastHash?: string;
+  /** Last ordered Kimai revision applied to Jira, when the webhook supplies one. */
+  lastKimaiModifiedAt?: string;
   pendingJiraWorklogDeletion?: {
     jiraIssueKey: string;
     jiraWorklogId: string;
@@ -23,6 +25,8 @@ export interface UserMapping {
   jiraAccountId: string;
   kimaiUserId: number;
   kimaiUsername?: string;
+  /** Kimai origin for which the personal token and identity were verified. */
+  kimaiBaseUrl?: string;
   enabled: boolean;
 }
 

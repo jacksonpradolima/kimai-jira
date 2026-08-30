@@ -4,7 +4,7 @@ function timerStartReservationKey(kimaiUserId: number): string {
   return `timer:start:${kimaiUserId}`;
 }
 
-export async function claimTimerStart(kimaiUserId: number, _jiraIssueKey: string): Promise<boolean> {
+export async function claimTimerStart(kimaiUserId: number): Promise<boolean> {
   try {
     await kvs.set(
       timerStartReservationKey(kimaiUserId),
@@ -23,6 +23,6 @@ export async function claimTimerStart(kimaiUserId: number, _jiraIssueKey: string
   }
 }
 
-export async function releaseTimerStart(kimaiUserId: number, _jiraIssueKey: string): Promise<void> {
+export async function releaseTimerStart(kimaiUserId: number): Promise<void> {
   await kvs.delete(timerStartReservationKey(kimaiUserId));
 }

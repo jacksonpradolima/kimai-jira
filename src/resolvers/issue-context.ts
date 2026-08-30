@@ -10,8 +10,10 @@ import {
 import { deleteUserMapping, getUserMapping, saveUserMapping } from '../storage/users';
 import { claimTimerStart, releaseTimerStart } from '../storage/timers';
 import {
+  claimJiraIssueKimaiTarget,
   getJiraIssueKimaiTarget,
   getJiraProjectCustomerMapping,
+  releaseJiraIssueKimaiTarget,
   saveJiraIssueKimaiTarget,
   saveJiraProjectCustomerMapping,
 } from '../storage/issue-targets';
@@ -29,6 +31,13 @@ function getCustomerId(payload: unknown): number | undefined {
   const customerId = (payload as { customerId?: unknown } | undefined)?.customerId;
   const parsed = typeof customerId === 'string' ? Number(customerId) : customerId;
   return typeof parsed === 'number' && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function hasCurrentKimaiConnection(
+  config: { url: string },
+  userMapping: { enabled: boolean; kimaiBaseUrl?: string } | undefined,
+): boolean {
+  return Boolean(userMapping?.enabled && userMapping.kimaiBaseUrl === config.url);
 }
 
 interface ManualTimeEntryPayload {
@@ -80,7 +89,14 @@ function durationSeconds(value: unknown): number | undefined {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-function timestamp(date: string, time: string, timezoneOffsetMinutes: number = 0): string {
+function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): string {
+  if (
+    typeof timezoneOffsetMinutes !== 'number'
+    || !Number.isInteger(timezoneOffsetMinutes)
+    || Math.abs(timezoneOffsetMinutes) > 14 * 60
+  ) {
+    throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
+  }
   const [year, month, day] = date.split('-').map(Number);
   const [hours, minutes] = time.split(':').map(Number);
   const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) - timezoneOffsetMinutes * 60 * 1000;
@@ -146,46 +162,66 @@ async function resolveTimerTarget(
 ): Promise<{ projectId: number; activityId: number }> {
   const existing = await getJiraIssueKimaiTarget(issue.id);
   if (existing?.kimaiCustomerId === kimaiCustomerId) {
-    const projects = await client.getProjects();
-    const projectExists = projects.some((candidate) => candidate.id === existing.kimaiProjectId && candidate.customer === kimaiCustomerId);
-    if (projectExists) {
-      const activities = await client.getActivities(existing.kimaiProjectId);
-      const activityExists = activities.some((candidate) => candidate.id === existing.kimaiActivityId && candidate.project === existing.kimaiProjectId);
-      if (activityExists) {
-        return { projectId: existing.kimaiProjectId, activityId: existing.kimaiActivityId };
-      }
+    const [projects, activities] = await Promise.all([
+      client.getProjects(), client.getActivities(existing.kimaiProjectId),
+    ]);
+    if (
+      projects.some((project) => project.id === existing.kimaiProjectId && project.customer === kimaiCustomerId)
+      && activities.some((activity) => activity.id === existing.kimaiActivityId && activity.project === existing.kimaiProjectId)
+    ) {
+      return { projectId: existing.kimaiProjectId, activityId: existing.kimaiActivityId };
     }
   }
 
-  const projectName = timerProjectName(issue);
-  const projects = await client.getProjects();
-  const project = projects.find(
-    (candidate) => candidate.customer === kimaiCustomerId && candidate.name === projectName,
-  ) ?? await client.createProject({ name: projectName, customer: kimaiCustomerId, visible: true });
+  const claimed = await claimJiraIssueKimaiTargetWithRetry(issue.id, kimaiCustomerId);
+  if (!claimed) throw new AppError('KIMAI_TARGET_BUSY', 'Kimai target setup is busy. Try again shortly.');
+  try {
+    const afterClaim = await getJiraIssueKimaiTarget(issue.id);
+    if (afterClaim?.kimaiCustomerId === kimaiCustomerId) {
+      const [projects, activities] = await Promise.all([
+        client.getProjects(), client.getActivities(afterClaim.kimaiProjectId),
+      ]);
+      if (
+        projects.some((project) => project.id === afterClaim.kimaiProjectId && project.customer === kimaiCustomerId)
+        && activities.some((activity) => activity.id === afterClaim.kimaiActivityId && activity.project === afterClaim.kimaiProjectId)
+      ) return { projectId: afterClaim.kimaiProjectId, activityId: afterClaim.kimaiActivityId };
+    }
 
-  const activityName = timerActivityName(issue);
-  const activities = await client.getActivities(project.id);
-  const activity = activities.find(
-    (candidate) => candidate.project === project.id && candidate.name === activityName,
-  ) ?? await client.createActivity({ name: activityName, project: project.id, visible: true });
+    const projectName = timerProjectName(issue);
+    const projects = await client.getProjects();
+    const project = projects.find(
+      (candidate) => candidate.customer === kimaiCustomerId && candidate.name === projectName,
+    ) ?? await client.createProject({ name: projectName, customer: kimaiCustomerId, visible: true });
 
-  await Promise.all([
-    saveJiraProjectCustomerMapping({
-      jiraProjectId: issue.project.id,
-      jiraProjectKey: issue.project.key,
-      jiraProjectName: issue.project.name,
-      kimaiCustomerId,
-    }),
-    saveJiraIssueKimaiTarget({
-      jiraIssueId: issue.id,
-      jiraIssueKey: issue.key,
-      kimaiCustomerId,
-      kimaiProjectId: project.id,
-      kimaiActivityId: activity.id,
-    }),
-  ]);
+    const activityName = timerActivityName(issue);
+    const activities = await client.getActivities(project.id);
+    const activity = activities.find(
+      (candidate) => candidate.project === project.id && candidate.name === activityName,
+    ) ?? await client.createActivity({ name: activityName, project: project.id, visible: true });
 
-  return { projectId: project.id, activityId: activity.id };
+    await Promise.all([
+      saveJiraProjectCustomerMapping({
+        jiraProjectId: issue.project.id, jiraProjectKey: issue.project.key,
+        jiraProjectName: issue.project.name, kimaiCustomerId,
+      }),
+      saveJiraIssueKimaiTarget({
+        jiraIssueId: issue.id, jiraIssueKey: issue.key, kimaiCustomerId,
+        kimaiProjectId: project.id, kimaiActivityId: activity.id,
+      }),
+    ]);
+
+    return { projectId: project.id, activityId: activity.id };
+  } finally {
+    await releaseJiraIssueKimaiTarget(issue.id, kimaiCustomerId);
+  }
+}
+
+async function claimJiraIssueKimaiTargetWithRetry(issueId: string, customerId: number): Promise<boolean> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await claimJiraIssueKimaiTarget(issueId, customerId)) return true;
+    await new Promise<void>((resolve) => { setTimeout(resolve, 25); });
+  }
+  return false;
 }
 
 /**
@@ -222,7 +258,7 @@ resolver.define('getIssueTimerState', async (request) => {
         activityName: string;
       }
     | undefined;
-  if (!userMapping?.enabled) {
+  if (!hasCurrentKimaiConnection(config, userMapping)) {
     timerSetupError = 'Your Kimai API token needs to be connected again.';
   } else if (!issueKey) {
     timerSetupError = 'Open a Jira issue before starting a timer.';
@@ -231,7 +267,7 @@ resolver.define('getIssueTimerState', async (request) => {
       const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
       const jiraClient = new ForgeJiraClient();
       const [activeTimesheets, jiraIssue, loadedCustomers] = await Promise.all([
-        client.getActiveTimesheets(userMapping.kimaiUserId),
+        client.getActiveTimesheets(userMapping!.kimaiUserId),
         jiraClient.getIssueDetails(issueKey),
         client.getCustomers(),
       ]);
@@ -300,20 +336,23 @@ resolver.define('startTimer', async (request) => {
     return { ok: false, error: 'Open a Jira issue before starting a timer.' };
   }
 
-  const startClaimed = await claimTimerStart(userMapping.kimaiUserId, issueKey);
+  const startClaimed = await claimTimerStart(userMapping!.kimaiUserId);
   if (!startClaimed) {
-    return { ok: false, error: 'A timer start is already in progress for this issue.' };
+    return { ok: false, error: 'A timer start is already in progress for your Kimai account.' };
   }
 
   try {
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
     const issueMarker = `[${issueKey}]`;
-    const activeTimesheets = await client.getActiveTimesheets(userMapping.kimaiUserId);
+    const activeTimesheets = await client.getActiveTimesheets(userMapping!.kimaiUserId);
     const existingTimer = activeTimesheets.find((timesheet) =>
       timesheet.description?.startsWith(issueMarker),
     );
     if (existingTimer) {
       return { ok: true, timesheet: existingTimer };
+    }
+    if (activeTimesheets.length > 0) {
+      return { ok: false, error: 'Stop your active Kimai timer before starting another one.' };
     }
     const jiraIssue = await new ForgeJiraClient().getIssueDetails(issueKey);
     const kimaiCustomerId = await resolveKimaiCustomerId(
@@ -326,13 +365,13 @@ resolver.define('startTimer', async (request) => {
       project: target.projectId,
       activity: target.activityId,
       description: `[${issueKey}] Jira issue timer`,
-      user: userMapping.kimaiUserId,
+      user: userMapping!.kimaiUserId,
     });
     return { ok: true, timesheet };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   } finally {
-    await releaseTimerStart(userMapping.kimaiUserId, issueKey);
+    await releaseTimerStart(userMapping!.kimaiUserId);
   }
 });
 
@@ -349,7 +388,7 @@ resolver.define('stopTimer', async (request) => {
   if (!apiToken) {
     return { ok: false, error: 'Add your personal Kimai API token before stopping a timer.' };
   }
-  if (!userMapping?.enabled) {
+  if (!hasCurrentKimaiConnection(config, userMapping)) {
     return { ok: false, error: 'Your Kimai API token needs to be connected again.' };
   }
 
@@ -357,7 +396,7 @@ resolver.define('stopTimer', async (request) => {
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
     const { timesheetId } = request.payload as { timesheetId: number };
     const activeTimesheet = await client.getTimesheet(timesheetId);
-    if (activeTimesheet.user !== userMapping.kimaiUserId) {
+    if (activeTimesheet.user !== userMapping!.kimaiUserId) {
       return { ok: false, error: 'You can only stop your own Kimai timer.' };
     }
     const timesheet = await client.stopTimer(timesheetId);
@@ -378,7 +417,7 @@ resolver.define('createManualTimeEntry', async (request) => {
   if (!config) {
     return { ok: false, error: 'Kimai is not configured yet.' };
   }
-  if (!apiToken || !userMapping?.enabled) {
+  if (!apiToken || !hasCurrentKimaiConnection(config, userMapping)) {
     return { ok: false, error: 'Add your personal Kimai API token before adding time.' };
   }
 
@@ -390,9 +429,7 @@ resolver.define('createManualTimeEntry', async (request) => {
     const date = dateValue(payload.date);
     const startTime = timeValue(payload.startTime, 'Start time');
     const duration = durationSeconds(payload.duration);
-    const timezoneOffsetMinutes = typeof payload.timezoneOffsetMinutes === 'number'
-      ? payload.timezoneOffsetMinutes
-      : new Date().getTimezoneOffset();
+    const timezoneOffsetMinutes = payload.timezoneOffsetMinutes;
     const begin = timestamp(date, startTime, timezoneOffsetMinutes);
     const end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes) : undefined;
     if (!end && duration === undefined) {
@@ -411,8 +448,8 @@ resolver.define('createManualTimeEntry', async (request) => {
       end: end ?? addDuration(begin, duration as number),
       project: target.projectId,
       activity: target.activityId,
-      user: userMapping.kimaiUserId,
-      description: typeof payload.description === 'string' ? payload.description.trim() || undefined : undefined,
+      user: userMapping!.kimaiUserId,
+      description: manualDescriptionWithIssueMarker(issueKey, payload.description),
       tags: manualTags(payload.tags),
       billable: payload.billable === true,
     });
@@ -444,16 +481,20 @@ resolver.define('savePersonalKimaiToken', async (request) => {
 
   try {
     const user = await new HttpKimaiClient({ baseUrl: config.url, apiToken: apiToken.trim() }).getCurrentUser();
+    const [previousToken, previousMapping] = await Promise.all([
+      getPersonalKimaiApiToken(accountId), getUserMapping(accountId),
+    ]);
     await setPersonalKimaiApiToken(accountId, apiToken.trim());
     try {
       await saveUserMapping({
-        jiraAccountId: accountId,
-        kimaiUserId: user.id,
-        kimaiUsername: user.username,
-        enabled: true,
+        jiraAccountId: accountId, kimaiUserId: user.id, kimaiUsername: user.username,
+        kimaiBaseUrl: config.url, enabled: true,
       });
     } catch (error) {
-      await clearPersonalKimaiApiToken(accountId);
+      if (previousToken) await setPersonalKimaiApiToken(accountId, previousToken);
+      else await clearPersonalKimaiApiToken(accountId);
+      if (previousMapping) await saveUserMapping(previousMapping);
+      else await deleteUserMapping(accountId);
       throw error;
     }
     return { ok: true, user: { id: user.id, username: user.username, email: user.email } };
@@ -472,3 +513,9 @@ resolver.define('clearPersonalKimaiToken', async (request) => {
 });
 
 export const handler = resolver.getDefinitions();
+
+function manualDescriptionWithIssueMarker(issueKey: string, description: unknown): string {
+  const text = typeof description === 'string' ? description.trim() : '';
+  const marker = `[${issueKey}]`;
+  return text.startsWith(marker) ? text : `${marker}${text ? ` ${text}` : ''}`;
+}
