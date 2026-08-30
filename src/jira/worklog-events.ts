@@ -118,12 +118,25 @@ export function jiraCommentToText(comment: unknown): string | undefined {
       return '';
     }
 
-    const value = node as { type?: unknown; text?: unknown; content?: unknown };
+    const value = node as {
+      type?: unknown;
+      text?: unknown;
+      content?: unknown;
+      attrs?: { text?: unknown; shortName?: unknown; displayName?: unknown; id?: unknown };
+    };
     if (typeof value.text === 'string') {
       return value.text;
     }
     if (value.type === 'hardBreak') {
       return '\n';
+    }
+    if (value.type === 'mention' && value.attrs) {
+      const mentionText = value.attrs.text ?? value.attrs.displayName ?? value.attrs.id;
+      return typeof mentionText === 'string' ? mentionText : '';
+    }
+    if (value.type === 'emoji' && value.attrs) {
+      const emojiText = value.attrs.text ?? value.attrs.shortName;
+      return typeof emojiText === 'string' ? emojiText : '';
     }
 
     const text = Array.isArray(value.content) ? value.content.map(visit).join('') : '';

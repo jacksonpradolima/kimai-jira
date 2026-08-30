@@ -5,12 +5,14 @@ export interface CreateJiraWorklogInput {
   started: string;
   timeSpentSeconds: number;
   comment?: string;
+  authorAccountId?: string;
 }
 
 export interface UpdateJiraWorklogInput {
   started?: string;
   timeSpentSeconds?: number;
   comment?: string;
+  authorAccountId?: string;
 }
 
 export interface JiraWorklog {
@@ -76,6 +78,7 @@ export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
           started: toJiraTimestamp(input.started),
           timeSpentSeconds: input.timeSpentSeconds,
           comment: toJiraAdfDocument(input.comment),
+          ...(input.authorAccountId ? { author: { accountId: input.authorAccountId } } : {}),
         }),
       },
     );
@@ -104,6 +107,7 @@ export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
           started: input.started ? toJiraTimestamp(input.started) : undefined,
           timeSpentSeconds: input.timeSpentSeconds,
           comment: toJiraAdfDocument(input.comment),
+          ...(input.authorAccountId ? { author: { accountId: input.authorAccountId } } : {}),
         }),
       },
     );
@@ -227,14 +231,15 @@ export function toJiraAdfDocument(comment: string | undefined): JiraAdfDocument 
     return { type: 'doc', version: 1, content: [] };
   }
 
+  const blocks = comment.split(/\r?\n/);
   return {
     type: 'doc',
     version: 1,
-    content: [
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text: comment }],
-      },
-    ],
+    content: blocks.map((block) => ({
+      type: 'paragraph',
+      content: block
+        ? [{ type: 'text', text: block }]
+        : [],
+    })),
   };
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceHash": "3be36392888bb68dd95e512580475edb7b5fa95a97c400e15fb7823b226d4e66",
+  "sourceHash": "e2fcbee06140c873cb091db3b0dc6f8eae83f8a42fe5464b0114883bf6489f67",
   "fixtures": {
     "issue-timer-stopped.png": "9ed4600d22e9f673d2f3619526c93cf8fa7b7256d315582dd15d2c20d6b860dd",
     "issue-timer-running.png": "2d7ccd610b97e2128eabb7db48ff9ceaf9b6a6a433694960bd7e8c88ea5f5c77",

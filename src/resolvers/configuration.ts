@@ -32,10 +32,39 @@ resolver.define('saveConnectionSettings', async (request) => {
   if (!url) {
     return { ok: false, error: 'A valid Kimai URL is required.' };
   }
+  if (existing?.url && existing.url !== url) {
+    return {
+      ok: false,
+      error: 'Changing the Kimai URL requires reconnecting the personal Kimai token for each user.',
+    };
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'defaultProjectId')
+    && payload.defaultProjectId !== null
+    && payload.defaultProjectId !== undefined
+    && payload.defaultProjectId !== ''
+    && coerceId(payload.defaultProjectId) === undefined
+  ) {
+    return { ok: false, error: 'The default Kimai project ID must be a positive integer.' };
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(payload, 'defaultActivityId')
+    && payload.defaultActivityId !== null
+    && payload.defaultActivityId !== undefined
+    && payload.defaultActivityId !== ''
+    && coerceId(payload.defaultActivityId) === undefined
+  ) {
+    return { ok: false, error: 'The default Kimai activity ID must be a positive integer.' };
+  }
+
+  const defaultProjectId = resolveDefaultId(payload, 'defaultProjectId', existing?.defaultProjectId);
+  const defaultActivityId = resolveDefaultId(payload, 'defaultActivityId', existing?.defaultActivityId);
+
   const config: KimaiConfig = {
     url,
-    defaultProjectId: resolveDefaultId(payload, 'defaultProjectId', existing?.defaultProjectId),
-    defaultActivityId: resolveDefaultId(payload, 'defaultActivityId', existing?.defaultActivityId),
+    defaultProjectId,
+    defaultActivityId,
   };
   await setKimaiConfig(config);
 
@@ -64,7 +93,10 @@ function coerceId(value: number | string | null | undefined): number | undefined
   }
 
   const parsed = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
 }
 
 function resolveDefaultId(
@@ -88,7 +120,10 @@ function normalizeKimaiUrl(value: string | undefined): string | undefined {
 
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : undefined;
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) {
+      return undefined;
+    }
+    return parsed.origin.replace(/\/$/, '') + parsed.pathname.replace(/\/$/, '');
   } catch {
     return undefined;
   }

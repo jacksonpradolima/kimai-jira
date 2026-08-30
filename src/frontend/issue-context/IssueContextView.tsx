@@ -110,7 +110,7 @@ export const IssueContextView = ({
   isManualEntryPending,
   manualEntryMessage,
   error,
-  activeTab = 'timer',
+  activeTab = 'manual',
   onCustomerChange,
   onManageConnection,
   onPersonalApiTokenChange,

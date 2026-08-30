@@ -1,13 +1,13 @@
 import { ForgeKvsAPIError, kvs } from '@forge/kvs';
 
-function timerStartReservationKey(kimaiUserId: number, jiraIssueKey: string): string {
-  return `timer:start:${kimaiUserId}:${jiraIssueKey}`;
+function timerStartReservationKey(kimaiUserId: number): string {
+  return `timer:start:${kimaiUserId}`;
 }
 
-export async function claimTimerStart(kimaiUserId: number, jiraIssueKey: string): Promise<boolean> {
+export async function claimTimerStart(kimaiUserId: number, _jiraIssueKey: string): Promise<boolean> {
   try {
     await kvs.set(
-      timerStartReservationKey(kimaiUserId, jiraIssueKey),
+      timerStartReservationKey(kimaiUserId),
       { claimedAt: new Date().toISOString() },
       {
         keyPolicy: 'FAIL_IF_EXISTS',
@@ -23,6 +23,6 @@ export async function claimTimerStart(kimaiUserId: number, jiraIssueKey: string)
   }
 }
 
-export async function releaseTimerStart(kimaiUserId: number, jiraIssueKey: string): Promise<void> {
-  await kvs.delete(timerStartReservationKey(kimaiUserId, jiraIssueKey));
+export async function releaseTimerStart(kimaiUserId: number, _jiraIssueKey: string): Promise<void> {
+  await kvs.delete(timerStartReservationKey(kimaiUserId));
 }

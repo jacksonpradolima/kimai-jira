@@ -40,6 +40,7 @@ interface ManualTimeEntryPayload {
   duration?: unknown;
   tags?: unknown;
   billable?: unknown;
+  timezoneOffsetMinutes?: unknown;
 }
 
 function timeValue(value: unknown, label: string): string {
@@ -79,8 +80,11 @@ function durationSeconds(value: unknown): number | undefined {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-function timestamp(date: string, time: string): string {
-  return `${date}T${time}:00`;
+function timestamp(date: string, time: string, timezoneOffsetMinutes: number = 0): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) - timezoneOffsetMinutes * 60 * 1000;
+  return new Date(utcMillis).toISOString().slice(0, 19);
 }
 
 function addDuration(begin: string, seconds: number): string {
@@ -142,7 +146,15 @@ async function resolveTimerTarget(
 ): Promise<{ projectId: number; activityId: number }> {
   const existing = await getJiraIssueKimaiTarget(issue.id);
   if (existing?.kimaiCustomerId === kimaiCustomerId) {
-    return { projectId: existing.kimaiProjectId, activityId: existing.kimaiActivityId };
+    const projects = await client.getProjects();
+    const projectExists = projects.some((candidate) => candidate.id === existing.kimaiProjectId && candidate.customer === kimaiCustomerId);
+    if (projectExists) {
+      const activities = await client.getActivities(existing.kimaiProjectId);
+      const activityExists = activities.some((candidate) => candidate.id === existing.kimaiActivityId && candidate.project === existing.kimaiProjectId);
+      if (activityExists) {
+        return { projectId: existing.kimaiProjectId, activityId: existing.kimaiActivityId };
+      }
+    }
   }
 
   const projectName = timerProjectName(issue);
@@ -378,8 +390,11 @@ resolver.define('createManualTimeEntry', async (request) => {
     const date = dateValue(payload.date);
     const startTime = timeValue(payload.startTime, 'Start time');
     const duration = durationSeconds(payload.duration);
-    const begin = timestamp(date, startTime);
-    const end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time')) : undefined;
+    const timezoneOffsetMinutes = typeof payload.timezoneOffsetMinutes === 'number'
+      ? payload.timezoneOffsetMinutes
+      : new Date().getTimezoneOffset();
+    const begin = timestamp(date, startTime, timezoneOffsetMinutes);
+    const end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes) : undefined;
     if (!end && duration === undefined) {
       throw new AppError('MANUAL_DURATION_REQUIRED', 'Enter a duration or an end time.');
     }
@@ -429,15 +444,18 @@ resolver.define('savePersonalKimaiToken', async (request) => {
 
   try {
     const user = await new HttpKimaiClient({ baseUrl: config.url, apiToken: apiToken.trim() }).getCurrentUser();
-    await Promise.all([
-      setPersonalKimaiApiToken(accountId, apiToken.trim()),
-      saveUserMapping({
+    await setPersonalKimaiApiToken(accountId, apiToken.trim());
+    try {
+      await saveUserMapping({
         jiraAccountId: accountId,
         kimaiUserId: user.id,
         kimaiUsername: user.username,
         enabled: true,
-      }),
-    ]);
+      });
+    } catch (error) {
+      await clearPersonalKimaiApiToken(accountId);
+      throw error;
+    }
     return { ok: true, user: { id: user.id, username: user.username, email: user.email } };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
