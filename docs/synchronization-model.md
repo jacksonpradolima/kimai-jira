@@ -43,6 +43,15 @@ changing the synchronization architecture (see also the note under "Kimai to Jir
 `timesheet.deleted` is not yet propagated from Kimai to Jira; support will be added once the
 corresponding Kimai webhook event is available/reliable.
 
+## Failure semantics
+
+Synchronization is not atomic across Jira and Kimai. The source record has already been saved
+before its event reaches Forge, so a failed target write leaves that source record unchanged. A
+mapping is persisted only after the target write succeeds. For a mapping-storage failure after a
+new target record is created, a pending-create record lets the next replay restore the mapping;
+the integration does not delete either record as compensation. See the detailed success and
+failure paths in [Architecture](architecture.md#data-flow).
+
 ## Idempotency and loop prevention
 
 - **Idempotency**: `src/sync/idempotency.ts` computes a stable content hash for each change.
