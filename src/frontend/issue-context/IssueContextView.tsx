@@ -390,6 +390,17 @@ function ManualTimeEntry({
             <Textfield id="manual-issue" isReadOnly value={state.target?.activityName ?? ''} />
           </FormSection>
           <FormSection>
+            <Label labelFor="manual-billable">Billable</Label>
+            <Toggle
+              id="manual-billable"
+              isChecked={billable}
+              label="Billable"
+              name="manual-billable"
+              onChange={() => onBillableChange(!billable)}
+              size="large"
+            />
+          </FormSection>
+          <FormSection>
             <Label labelFor="manual-tags">Tags</Label>
             <Textfield id="manual-tags" placeholder="Type a tag, then choose Add tag" value={tagInput} onChange={(event: { target: { value?: unknown } }) => onTagInputChange(String(event.target.value ?? ''))} />
             <Button appearance="subtle" isDisabled={!tagInput.trim()} onClick={onAddTag}>Add tag</Button>
@@ -404,7 +415,6 @@ function ManualTimeEntry({
               </TagGroup>
             )}
           </FormSection>
-          <Toggle key={String(billable)} defaultChecked={billable} label="Billable" name="manual-billable" onChange={(event) => onBillableChange((event as unknown as { target?: { checked?: unknown } }).target?.checked === true)} />
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>

@@ -173,6 +173,29 @@ that same site; it cannot create or locate a missing demo site. After installati
 6. Start/stop a timer or create a manual entry. Confirm that the expected Kimai
    timesheet is created.
 
+### Redeploy an existing development installation
+
+After changing the app, run the checks and deploy to the same Forge environment:
+
+```bash
+npm run check
+npx forge deploy --environment development
+```
+
+For ordinary code and UI changes, Forge automatically updates installations on the
+same major version. Refresh the Jira issue after the deployment completes. If the
+change updates `manifest.yml` permissions or allowed Kimai egress hosts, Forge will
+request a major-version approval; upgrade the existing development installation:
+
+```bash
+npx forge install --environment development --demo-site --upgrade
+```
+
+For a non-demo development site, replace `--demo-site` with
+`--site your-dev-site.atlassian.net --product jira`. Never run `forge register`
+again when redeploying: it creates a different app and does not update the existing
+installation.
+
 For iterative code changes, keep this command running in a separate terminal:
 
 ```bash

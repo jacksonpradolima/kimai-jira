@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "sourceHash": "9b61e3e9b3f82e58e3b8b76c6aef56601cfbc85b960de52884054b55e20dcc9f",
+  "sourceHash": "4d2601beb674a2281be2fed8e0d827e2738ffb1dfdb39e25af4a82630727bf49",
   "fixtures": {
-    "issue-timer-stopped.png": "9ed4600d22e9f673d2f3619526c93cf8fa7b7256d315582dd15d2c20d6b860dd",
-    "issue-timer-running.png": "2d7ccd610b97e2128eabb7db48ff9ceaf9b6a6a433694960bd7e8c88ea5f5c77",
-    "issue-not-configured.png": "46d960c57b4b59877e4b00cc2620b0bef4e6af8d4fe0e6dfaba89f0bc0481c62",
-    "issue-timer-unavailable.png": "fcc49bc08480c4a2e77219d853daa0d404745f31f9bc3b30c5509a8d7bc0e2fb",
-    "manual-entry-current.png": "be964fbbec0fc5cf420085471dbb9081198fdae63e188ff03ef0b468a2dc966d",
-    "issue-personal-connection.png": "f2cc73e92374321670708688e69c0039071e048ac8fb9c73ca47b4fac3f05575",
-    "admin-configuration.png": "2df9871504d7d8563c190679309a87beaf2abb6321b5162bb4ea4087741420ac",
-    "admin-webhook.png": "063853497f4d5d1be55a2733edf287f8040c1ce3e21968db46614a91d6cb2f47"
+    "issue-timer-stopped.png": "fe0bf6a95d4a48a6fc89bdfd5c37608a96a9934fef06a6471e8728499f824206",
+    "issue-timer-running.png": "3017f6e0a54a8a5b64e1cb8530ebbae40009fbb70f293e76195b51fba614d990",
+    "issue-not-configured.png": "ab12001c17dd2dc36cf99ebf7ee8ce5e4414efba82423beabddacac4405ad0bf",
+    "issue-timer-unavailable.png": "5e3f4f1c37a50d54b5625f0f7518e84fad7bf8ac5d0c007984c2daf12c73b940",
+    "manual-entry-current.png": "91e9a143e72a6b2b5e49124b55426e37aa43c349e99f7562966d572c34da3457",
+    "issue-personal-connection.png": "084065cb6d0d755976b28cb814deafd6903bc2a1efa86a94de2fd24e81bf58c9",
+    "admin-configuration.png": "13db5ecdde15c2c27e2fc9050d3562d2e55909bc90d2f38311dfe2cf6317413c",
+    "admin-webhook.png": "c30eadd20b59aed3a0bd1ae55c0d77489e44169f19a6e496418bd7c5c6c24b7b"
   }
 }
