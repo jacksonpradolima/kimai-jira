@@ -1,7 +1,7 @@
 import { JiraClient } from '../jira/client';
 import { WorklogMapping } from '../shared/types';
 import { logger } from '../shared/logger';
-import { stripJiraWorklogCorrelation } from './correlation';
+import { formatKimaiTimesheetCorrelation, stripJiraWorklogCorrelation } from './correlation';
 import {
   computeContentHash,
   mergeMapping,
@@ -146,6 +146,20 @@ export async function syncKimaiTimesheetToJira(
     }
 
     if (shouldSkipSyncEvent(existing, { hash })) {
+      if (
+        existing
+        && modifiedAt
+        && (!existing.lastKimaiModifiedAt
+          || new Date(modifiedAt).getTime() > new Date(existing.lastKimaiModifiedAt).getTime())
+      ) {
+        const advancedWatermark = mergeMapping(existing, {
+          jiraWorklogId: existing.jiraWorklogId,
+          kimaiTimesheetId: existing.kimaiTimesheetId,
+          lastKimaiModifiedAt: modifiedAt,
+        });
+        await recordMapping(advancedWatermark);
+        existing = advancedWatermark;
+      }
       logger.info({
         event: 'timesheet.duplicate_ignored',
         direction: 'kimai-to-jira',
@@ -168,7 +182,10 @@ export async function syncKimaiTimesheetToJira(
           issueIdOrKey: change.jiraIssueKey,
           started: begin,
           timeSpentSeconds,
-          comment,
+          // The Jira worklog event can be delivered before its KVS mapping is
+          // stored. This marker lets that trigger recognize and ignore this
+          // app-generated create during that short window.
+          comment: `${formatKimaiTimesheetCorrelation(change.kimaiTimesheetId)}${comment ? ` ${comment}` : ''}`,
           authorAccountId: change.jiraAuthorAccountId,
         });
 

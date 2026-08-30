@@ -162,4 +162,18 @@ describe('Jira worklog event handler', () => {
 
     expect(mockSyncJiraWorklogToKimai).not.toHaveBeenCalled();
   });
+
+  it('ignores an app-created Kimai import until its Jira mapping is persisted', async () => {
+    await handler({
+      eventType: 'avi:jira:created:worklog',
+      issue: { key: 'BA-3' },
+      worklog: {
+        id: '100271', issueId: '10001', author: { accountId: '712020:abc123' },
+        started: '2026-08-27T10:00:00.000Z', timeSpentSeconds: 3600,
+        comment: '[kimai-jira-timesheet:8291] Imported time',
+      },
+    });
+
+    expect(mockSyncJiraWorklogToKimai).not.toHaveBeenCalled();
+  });
 });

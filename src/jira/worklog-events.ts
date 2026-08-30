@@ -5,6 +5,7 @@ import { getPersonalKimaiApiToken } from '../storage/secrets';
 import { getUserMapping, getUserMappingByKimaiUserId } from '../storage/users';
 import { syncJiraWorklogToKimai } from '../sync/jira-to-kimai';
 import { getMappingByJiraWorklogId } from '../sync/mapping';
+import { getKimaiTimesheetCorrelation, stripKimaiTimesheetCorrelation } from '../sync/correlation';
 import { logger } from '../shared/logger';
 
 interface JiraWorklogEvent {
@@ -53,6 +54,14 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     getMappingByJiraWorklogId(event.worklog.id),
     authorAccountId ? getUserMapping(authorAccountId) : Promise.resolve(undefined),
   ]);
+  const comment = jiraCommentToText(event.worklog.comment);
+  if (getKimaiTimesheetCorrelation(comment) && !existingMapping) {
+    logger.info({
+      event: 'worklog.skipped_import_in_progress', direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id, result: 'success',
+    });
+    return;
+  }
   const mappedOwner = existingMapping?.kimaiUserId
     ? await getUserMappingByKimaiUserId(existingMapping.kimaiUserId)
     : undefined;
@@ -121,7 +130,7 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     started: event.worklog.started,
     updated: event.worklog.updated,
     timeSpentSeconds: event.worklog.timeSpentSeconds,
-    comment: jiraCommentToText(event.worklog.comment),
+    comment: comment ? stripKimaiTimesheetCorrelation(comment) : undefined,
     selfGenerated: event.selfGenerated,
   });
 }

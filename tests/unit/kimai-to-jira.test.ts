@@ -80,7 +80,7 @@ describe('syncKimaiTimesheetToJira', () => {
       issueIdOrKey: 'BA-3',
       started: '2026-08-27T10:00:00.000Z',
       timeSpentSeconds: 3600,
-      comment: '1-1 Meetings',
+      comment: '[kimai-jira-timesheet:8291] 1-1 Meetings',
     });
     expect(mapping?.jiraIssueId).toBe('10001');
     expect(mapping?.lastHash).toBe(
@@ -114,6 +114,27 @@ describe('syncKimaiTimesheetToJira', () => {
 
     expect(client.createWorklog).not.toHaveBeenCalled();
     expect(client.updateWorklog).not.toHaveBeenCalled();
+  });
+
+  it('advances the Kimai revision watermark for a duplicate echo', async () => {
+    const hash = computeContentHash({
+      jiraIssueKey: 'BA-3', started: baseChange.begin, duration: 3600, comment: '1-1 Meetings',
+    });
+    (mappingsStorage.getMappingByKimaiTimesheetId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001', jiraIssueKey: 'BA-3', jiraWorklogId: '100271', kimaiTimesheetId: 8291,
+      origin: 'jira', lastSyncedAt: '2026-08-27T09:00:00.000Z', lastHash: hash,
+      lastKimaiModifiedAt: '2026-08-27T10:00:00.000Z',
+    });
+    const client = buildClient();
+
+    await syncKimaiTimesheetToJira(client, {
+      ...baseChange, modifiedAt: '2026-08-27T12:00:00.000Z',
+    });
+
+    expect(client.updateWorklog).not.toHaveBeenCalled();
+    expect(mappingsStorage.saveWorklogMapping).toHaveBeenCalledWith(expect.objectContaining({
+      lastKimaiModifiedAt: '2026-08-27T12:00:00.000Z',
+    }));
   });
 
   it('rejects invalid timestamps before sending to Jira', async () => {
