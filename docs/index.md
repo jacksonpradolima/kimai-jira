@@ -3,6 +3,11 @@
 **Kimai for Jira** is an open-source [Atlassian Forge](https://developer.atlassian.com/platform/forge/) app
 that connects Jira Cloud issues to a self-hosted [Kimai](https://www.kimai.org/) instance.
 
+It runs on [Atlassian Forge](https://developer.atlassian.com/platform/forge/), Atlassian's hosted
+platform for Jira Cloud apps. Forge deploys and runs the app; Jira provides the UI and worklog
+events; Kimai remains the time-tracking system. New to Forge? Start with
+[Deployment](deployment.md#what-atlassian-forge-is).
+
 It brings a Clockify-like experience to Jira, backed by Kimai instead:
 
 - a timer directly inside the Jira issue view;

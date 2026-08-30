@@ -5,6 +5,32 @@ working installation on a company Jira Cloud site. Follow the sections in order:
 first prove the code locally, then test it on a disposable Forge/Jira site, then
 deploy it to your company.
 
+## What Atlassian Forge is
+
+[Atlassian Forge](https://developer.atlassian.com/platform/forge/) is Atlassian's hosted platform
+for building Jira Cloud apps. This repository is the app's source code; Forge is the service that
+packages that code, runs its backend functions, stores its app data and secrets, and places its UI
+inside Jira. You do not run a separate application server for this project.
+
+In this integration, the pieces have distinct responsibilities:
+
+| Piece | Responsibility |
+|---|---|
+| This repository | TypeScript source code, tests, manifest, and documentation. |
+| Forge | Deploys/runs the app, provides encrypted secret storage, and restricts outbound network access. |
+| Jira Cloud | Hosts the Kimai issue panel and administration page; emits worklog events. |
+| Kimai | Remains the time-tracking system; receives/creates timesheets and sends webhooks back to Forge. |
+
+The `manifest.yml` file is the contract between this code and Forge. It declares the Jira modules
+that Forge should install, the API permissions the app needs, and the Kimai hostname Forge may call.
+`npx forge deploy` uploads the manifest and code to a Forge environment; `npx forge install` then
+connects that deployed environment to a Jira site.
+
+Forge creates separate development, staging, and production environments for an app. They use
+separate deployments and storage, which is why testing on a demo/development site cannot alter the
+company production installation. Forge is only for Atlassian **Cloud**: this app does not install
+on Jira Server or Data Center.
+
 ## Choose the right environment
 
 Keep the three stages separate. A Forge app has independent **development**,
