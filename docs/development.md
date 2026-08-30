@@ -11,6 +11,36 @@ npm ci
 No production Forge or Kimai credentials are required for `npm ci`, `npm run lint`,
 `npm run typecheck` or `npm test`.
 
+## Dev Container
+
+The repository includes a reproducible [Dev Container](https://containers.dev/) for VS Code and
+GitHub Codespaces. It pins Node.js 22, installs the Playwright browser required for UI-document
+checks, installs the documentation tooling, and enables the repository Git hooks.
+
+Open the repository with **Dev Containers: Reopen in Container**. The initial setup runs
+automatically; subsequent shell sessions can use the `make` targets below.
+
+## Common development tasks
+
+The `Makefile` provides concise commands in the Dev Container and CI (or any environment with
+GNU Make installed):
+
+```bash
+make install      # npm ci
+make check        # lint, typecheck, unit tests, and UI-doc verification
+make coverage     # Jest coverage report
+make docs         # strict Zensical build
+make ci           # all repository checks, including docs
+```
+
+`make help` lists every available target.
+
+Outside the Dev Container, install the Playwright browser once before running UI-document checks:
+
+```bash
+npx playwright install chromium
+```
+
 ## Registering your own Forge app
 
 The `manifest.yml` in this repository contains a placeholder `app.id`. To develop against your own
@@ -90,3 +120,21 @@ flowchart LR
 
 Deployment to any real Forge installation is a separate, maintainer-triggered GitHub Actions
 workflow (`.github/workflows/deploy.yml`) and never runs automatically from a pull request.
+
+## Commit and release workflow
+
+Install the local checks once when not using the Dev Container:
+
+```bash
+python3 -m pip install --user pre-commit
+python3 -m pre_commit install --install-hooks
+```
+
+The hooks reject whitespace errors, merge-conflict markers, oversized files, failed repository
+checks, and commit messages that do not follow Conventional Commits. Pull request titles follow
+the same convention.
+
+On `main`, semantic-release determines the next semantic version from Conventional Commit types,
+updates `CHANGELOG.md`, `package.json`, and `package-lock.json`, creates a `vX.Y.Z` tag, and
+publishes a GitHub Release. The project remains private and is **not** published to npm. Forge
+deployment remains a separate, manually dispatched workflow.

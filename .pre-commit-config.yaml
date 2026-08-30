@@ -1,0 +1,27 @@
+default_install_hook_types: [pre-commit, commit-msg]
+fail_fast: true
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+  - repo: local
+    hooks:
+      - id: repository-checks
+        name: Run repository checks
+        entry: npm run check
+        language: system
+        pass_filenames: false
+        stages: [pre-commit, pre-push]
+      - id: commitlint
+        name: Validate Conventional Commit message
+        entry: npx --no-install commitlint --edit
+        language: system
+        stages: [commit-msg]

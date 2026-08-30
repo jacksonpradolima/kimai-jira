@@ -25,10 +25,19 @@ npm ci
 Run the same checks CI runs:
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
+npm run check
+python3 -m zensical build -f zensical.toml --clean --strict
 ```
+
+Install the Git hooks if you are not using the included Dev Container:
+
+```bash
+python3 -m pip install --user pre-commit
+python3 -m pre_commit install --install-hooks
+```
+
+Commits and pull request titles must follow [Conventional Commits](https://www.conventionalcommits.org/).
+This controls semantic versioning and the generated GitHub release notes.
 
 If you want to also exercise Forge-specific validation, run `npx forge lint` against your own
 (non-production) Atlassian developer account — see [docs/development.md](docs/development.md).
