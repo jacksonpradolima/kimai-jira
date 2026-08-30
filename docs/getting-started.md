@@ -4,7 +4,7 @@ This page gets a new contributor or administrator up and running quickly.
 
 ## Prerequisites
 
-- Node.js 18+ (Node 22 is used in CI)
+- Node.js 22 (the supported project and CI runtime)
 - npm
 - A free [Atlassian developer account](https://developer.atlassian.com/platform/forge/getting-started/)
   (this is **not** the same as access to any production/company Jira site)

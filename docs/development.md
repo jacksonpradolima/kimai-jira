@@ -20,6 +20,13 @@ checks, installs the documentation tooling, and enables the repository Git hooks
 Open the repository with **Dev Containers: Reopen in Container**. The initial setup runs
 automatically; subsequent shell sessions can use the `make` targets below.
 
+## GitHub Actions runner requirements
+
+GitHub-hosted runners require no additional setup. When using self-hosted runners, install
+Actions Runner `v2.327.1` or later. The Dependency Review action runs on Node.js 24 from v5.0.0,
+which requires that runner version. This is independent of the project runtime: local development
+and the application's CI jobs use Node.js 22.
+
 ## Common development tasks
 
 The `Makefile` provides concise commands in the Dev Container and CI (or any environment with
