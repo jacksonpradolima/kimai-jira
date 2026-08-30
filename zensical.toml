@@ -58,5 +58,7 @@ attr_list = {}
 def_list = {}
 footnotes = {}
 toc.permalink = true
-pymdownx.superfences = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
 pymdownx.tabbed.alternate_style = true

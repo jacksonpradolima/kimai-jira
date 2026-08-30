@@ -1,13 +1,8 @@
 # Architecture
 
-```text
-Jira Cloud
-   |
-   v
-Atlassian Forge
-   |
-   v
-Kimai self-hosted
+```mermaid
+flowchart TB
+  jira[Jira Cloud] --> forge[Atlassian Forge] --> kimai[Kimai self-hosted]
 ```
 
 Instead of running our own externally-hosted server, the app runs entirely on Forge: UI
@@ -25,16 +20,17 @@ extensions, event triggers, a web trigger endpoint, storage and encrypted secret
 
 ## Source layout
 
-```text
-src/
-  frontend/       UI Kit 2 entry points (issue-context, admin)
-  resolvers/      Forge resolver functions backing the frontend
-  jira/           Jira REST API client + worklog trigger handler
-  kimai/          Kimai REST API client
-  webhooks/       Web trigger handler, signature verification, event handlers
-  sync/           Synchronization policy: mapping, idempotency, conflict resolution
-  storage/        Forge KVS/secret storage helpers
-  shared/         Cross-cutting types, logging, errors, validation
+```mermaid
+flowchart TB
+  root["src/"]
+  root --> frontend["frontend/: UI Kit 2 entry points (issue-context, admin)"]
+  root --> resolvers["resolvers/: Forge resolver functions backing the frontend"]
+  root --> jira["jira/: Jira REST API client and worklog trigger handler"]
+  root --> kimai["kimai/: Kimai REST API client"]
+  root --> webhooks["webhooks/: Web trigger handler, signature verification, event handlers"]
+  root --> sync["sync/: Synchronization policy, mapping, idempotency, conflict resolution"]
+  root --> storage["storage/: Forge KVS and secret storage helpers"]
+  root --> shared["shared/: Cross-cutting types, logging, errors, validation"]
 ```
 
 `jira/`, `kimai/` and `sync/` are intentionally separate: neither Jira- nor Kimai-specific code
@@ -43,9 +39,10 @@ in isolation.
 
 ## Data flow
 
-```text
-Jira worklog event --> jira/worklog-events.ts --> sync/jira-to-kimai.ts --> kimai/client.ts
-Kimai webhook       --> webhooks/kimai-webhook.ts --> sync/kimai-to-jira.ts --> jira/client.ts
+```mermaid
+flowchart LR
+  jiraEvent[Jira worklog event] --> jiraHandler[jira/worklog-events.ts] --> jiraSync[sync/jira-to-kimai.ts] --> kimaiClient[kimai/client.ts]
+  kimaiWebhook[Kimai webhook] --> webhookHandler[webhooks/kimai-webhook.ts] --> kimaiSync[sync/kimai-to-jira.ts] --> jiraClient[jira/client.ts]
 ```
 
 Both directions read/write the same persistent mapping (`storage/mappings.ts`) keyed by both the

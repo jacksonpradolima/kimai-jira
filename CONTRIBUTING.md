@@ -4,8 +4,9 @@ Thanks for considering a contribution to Kimai for Jira!
 
 ## Workflow
 
-```text
-Fork -> Branch -> Pull Request -> CI -> Review -> Merge
+```mermaid
+flowchart LR
+  fork[Fork] --> branch[Branch] --> pullRequest[Pull Request] --> ci[CI] --> review[Review] --> merge[Merge]
 ```
 
 You do **not** need access to the maintainer's production Jira site or production Forge

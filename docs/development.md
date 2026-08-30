@@ -83,8 +83,9 @@ The generated `site/` output is git-ignored and must never be committed.
 
 ## Commit workflow
 
-```text
-Fork -> Branch -> Pull Request -> CI -> Review -> Merge
+```mermaid
+flowchart LR
+  fork[Fork] --> branch[Branch] --> pullRequest[Pull Request] --> ci[CI] --> review[Review] --> merge[Merge]
 ```
 
 Deployment to any real Forge installation is a separate, maintainer-triggered GitHub Actions
