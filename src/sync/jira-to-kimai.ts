@@ -46,6 +46,8 @@ export interface JiraWorklogChange {
   kimaiProjectId?: number;
   kimaiActivityId?: number;
   started: string;
+  /** Jira's ordered worklog update timestamp, when supplied by the event. */
+  updated?: string;
   timeSpentSeconds: number;
   comment?: string;
   selfGenerated?: boolean;
@@ -102,6 +104,18 @@ export async function syncJiraWorklogToKimai(
     }
     const started = normalizeSyncTimestamp(change.started);
     const startedMs = new Date(started).getTime();
+    const updated = change.updated ? normalizeSyncTimestamp(change.updated) : undefined;
+    if (
+      existing?.lastJiraUpdatedAt
+      && updated
+      && new Date(updated).getTime() < new Date(existing.lastJiraUpdatedAt).getTime()
+    ) {
+      logger.info({
+        event: 'worklog.stale_ignored', direction: 'jira-to-kimai',
+        jiraIssueKey: change.jiraIssueKey, jiraWorklogId: change.jiraWorklogId, result: 'success',
+      });
+      return existing;
+    }
     const hash = computeContentHash({
       jiraIssueKey: change.jiraIssueKey,
       started,
@@ -155,6 +169,7 @@ export async function syncJiraWorklogToKimai(
       kimaiTimesheetId: timesheet.id,
       origin: 'jira',
       lastHash: hash,
+      lastJiraUpdatedAt: updated,
     });
 
     if (createdTimesheet) {

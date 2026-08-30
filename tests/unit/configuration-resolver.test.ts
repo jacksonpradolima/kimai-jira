@@ -89,4 +89,18 @@ describe('configuration resolver', () => {
     });
     expect(mockSetKimaiConfig).not.toHaveBeenCalled();
   });
+
+  it('allows a Kimai URL migration and marks personal connections for reconnection', async () => {
+    mockGetKimaiConfig.mockResolvedValue({ url: 'https://old-kimai.example.test' });
+    const saveConnectionSettings = (handler as unknown as typeof mockDefinitions).saveConnectionSettings;
+
+    await expect(saveConnectionSettings({
+      payload: { url: 'https://new-kimai.example.test/base/' },
+    })).resolves.toEqual({
+      ok: true,
+      config: { url: 'https://new-kimai.example.test/base' },
+      credentialsNeedReconnect: true,
+    });
+    expect(mockSetKimaiConfig).toHaveBeenCalledWith({ url: 'https://new-kimai.example.test/base' });
+  });
 });

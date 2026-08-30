@@ -141,6 +141,24 @@ describe('syncJiraWorklogToKimai', () => {
     expect(client.updateTimesheet).not.toHaveBeenCalled();
   });
 
+  it('ignores an older Jira worklog revision after a newer revision was recorded', async () => {
+    (mappingsStorage.getMappingByJiraWorklogId as jest.Mock).mockResolvedValueOnce({
+      jiraIssueId: '10001', jiraIssueKey: 'BA-3', jiraWorklogId: '100271', kimaiTimesheetId: 8291,
+      origin: 'jira', lastSyncedAt: '2026-08-27T09:00:00.000Z',
+      lastJiraUpdatedAt: '2026-08-27T12:00:00.000Z',
+    });
+    const client = buildClient();
+
+    const mapping = await syncJiraWorklogToKimai(client, {
+      ...baseChange,
+      updated: '2026-08-27T11:00:00.000Z',
+      comment: 'Delayed change',
+    });
+
+    expect(client.updateTimesheet).not.toHaveBeenCalled();
+    expect(mapping).toEqual(expect.objectContaining({ kimaiTimesheetId: 8291 }));
+  });
+
   it('recovers a created timesheet when mapping persistence fails', async () => {
     const hash = computeContentHash({
       jiraIssueKey: baseChange.jiraIssueKey,

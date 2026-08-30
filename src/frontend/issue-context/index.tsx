@@ -35,6 +35,15 @@ function manualTotalDuration(startTime: string, endTime: string): string {
   return `${String(hours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}:00`;
 }
 
+function timezoneOffsetForManualStart(date: string, time: string): number {
+  // An ISO timestamp without a zone is interpreted in the browser's local timezone.
+  // Reading the offset from this selected date (rather than "now") handles DST changes.
+  const selectedLocalTime = new Date(`${date}T${time}:00`);
+  return Number.isNaN(selectedLocalTime.getTime())
+    ? new Date().getTimezoneOffset()
+    : selectedLocalTime.getTimezoneOffset();
+}
+
 /** Forge integration for the issue-context panel. */
 const App = () => {
   const [state, setState] = useState<TimerState | undefined>(undefined);
@@ -204,7 +213,7 @@ const App = () => {
         date: manualDate,
         startTime: manualStartTime,
         endTime: manualEndTime,
-        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
+        timezoneOffsetMinutes: timezoneOffsetForManualStart(manualDate, manualStartTime),
         tags: manualTags,
         billable: manualBillable,
       })) as { ok?: boolean; error?: string; timesheet?: { id?: number } };

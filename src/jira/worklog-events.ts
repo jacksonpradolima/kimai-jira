@@ -1,8 +1,8 @@
 import { ForgeJiraClient } from './client';
 import { HttpKimaiClient } from '../kimai/client';
-import { getKimaiConfig } from '../storage/config';
+import { getKimaiConfig, getSyncSettings } from '../storage/config';
 import { getPersonalKimaiApiToken } from '../storage/secrets';
-import { getUserMapping } from '../storage/users';
+import { getUserMapping, getUserMappingByKimaiUserId } from '../storage/users';
 import { syncJiraWorklogToKimai } from '../sync/jira-to-kimai';
 import { getMappingByJiraWorklogId } from '../sync/mapping';
 import { logger } from '../shared/logger';
@@ -16,6 +16,7 @@ interface JiraWorklogEvent {
     author?: { accountId?: string };
     authorAccountId?: string;
     started: string;
+    updated?: string;
     timeSpentSeconds: number;
     comment?: unknown;
   };
@@ -27,6 +28,11 @@ interface JiraWorklogEvent {
  * `avi:jira:updated:worklog` and `avi:jira:deleted:worklog` events.
  */
 export async function handler(event: JiraWorklogEvent): Promise<void> {
+  const sync = await getSyncSettings();
+  if (!sync.jiraToKimai) {
+    logger.info({ event: 'worklog.sync_disabled', direction: 'jira-to-kimai', jiraWorklogId: event.worklog.id, result: 'success' });
+    return;
+  }
   if (event.eventType === 'avi:jira:deleted:worklog') {
     // Delete support is intentionally deferred; see docs/synchronization-model.md.
     logger.info({
@@ -37,15 +43,22 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     });
     return;
   }
+  if (event.eventType === 'avi:jira:created:worklog' && !sync.allowCreate) return;
+  if (event.eventType === 'avi:jira:updated:worklog' && !sync.allowUpdate) return;
 
   const jiraIssueKey = event.issue?.key ?? (await new ForgeJiraClient().getIssueKey(event.worklog.issueId));
   const authorAccountId = event.worklog.author?.accountId ?? event.worklog.authorAccountId;
-  const [config, existingMapping, userMapping, apiToken] = await Promise.all([
+  const [config, existingMapping, authorMapping] = await Promise.all([
     getKimaiConfig(),
     getMappingByJiraWorklogId(event.worklog.id),
     authorAccountId ? getUserMapping(authorAccountId) : Promise.resolve(undefined),
-    authorAccountId ? getPersonalKimaiApiToken(authorAccountId) : Promise.resolve(undefined),
   ]);
+  const mappedOwner = existingMapping?.kimaiUserId
+    ? await getUserMappingByKimaiUserId(existingMapping.kimaiUserId)
+    : undefined;
+  const userMapping = mappedOwner ?? authorMapping;
+  const tokenAccountId = userMapping?.jiraAccountId;
+  const apiToken = tokenAccountId ? await getPersonalKimaiApiToken(tokenAccountId) : undefined;
 
   if (!config || !apiToken) {
     logger.warn({
@@ -77,6 +90,14 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     return;
   }
 
+  if (userMapping && userMapping.kimaiBaseUrl !== config.url) {
+    logger.warn({
+      event: 'worklog.sync_skipped_reconnect_required', direction: 'jira-to-kimai',
+      jiraWorklogId: event.worklog.id, result: 'failure',
+    });
+    return;
+  }
+
   if (!existingMapping && (!config.defaultProjectId || !config.defaultActivityId)) {
     logger.warn({
       event: 'worklog.sync_skipped_missing_defaults',
@@ -93,11 +114,12 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
     jiraIssueId: event.worklog.issueId,
     jiraIssueKey,
     jiraWorklogId: event.worklog.id,
-    authorAccountId,
-    kimaiUserId: userMapping?.kimaiUserId,
+    authorAccountId: userMapping?.jiraAccountId ?? authorAccountId,
+    kimaiUserId: userMapping?.kimaiUserId ?? existingMapping?.kimaiUserId,
     kimaiProjectId: config.defaultProjectId,
     kimaiActivityId: config.defaultActivityId,
     started: event.worklog.started,
+    updated: event.worklog.updated,
     timeSpentSeconds: event.worklog.timeSpentSeconds,
     comment: jiraCommentToText(event.worklog.comment),
     selfGenerated: event.selfGenerated,

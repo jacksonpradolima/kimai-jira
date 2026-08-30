@@ -3,6 +3,7 @@ import { getJiraWorklogCorrelation } from '../../sync/correlation';
 import { syncKimaiTimesheetToJira } from '../../sync/kimai-to-jira';
 import { getMappingByJiraWorklogId } from '../../sync/mapping';
 import { getUserMappingByKimaiUserId } from '../../storage/users';
+import { getSyncSettings } from '../../storage/config';
 
 export interface KimaiTimesheetPayload {
   id: number;
@@ -29,6 +30,9 @@ export async function handleTimesheetCreated(
     return;
   }
 
+  const sync = await getSyncSettings();
+  if (!sync.kimaiToJira || !sync.allowCreate) return;
+
   const userMapping = await resolveEnabledKimaiUser(payload);
   if (!userMapping) return;
 
@@ -52,6 +56,7 @@ export async function handleTimesheetCreated(
     end: payload.end,
     description: payload.description,
     modifiedAt: payload.modifiedAt,
+    kimaiUserId: userMapping.kimaiUserId,
     jiraAuthorAccountId: userMapping.jiraAccountId,
   });
 }

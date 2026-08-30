@@ -8,6 +8,8 @@ export interface WorklogMapping {
   jiraWorklogId: string;
 
   kimaiTimesheetId: number;
+  /** Kimai owner of the linked timesheet, used to resolve the personal token on later Jira edits. */
+  kimaiUserId?: number;
 
   origin: 'jira' | 'kimai';
 
@@ -15,6 +17,8 @@ export interface WorklogMapping {
   lastHash?: string;
   /** Last ordered Kimai revision applied to Jira, when the webhook supplies one. */
   lastKimaiModifiedAt?: string;
+  /** Last ordered Jira worklog revision applied to Kimai, when Jira supplies one. */
+  lastJiraUpdatedAt?: string;
   pendingJiraWorklogDeletion?: {
     jiraIssueKey: string;
     jiraWorklogId: string;

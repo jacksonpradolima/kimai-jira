@@ -74,6 +74,7 @@ export interface KimaiTimesheetChange {
   end: string;
   description?: string;
   modifiedAt?: string;
+  kimaiUserId?: number;
   jiraAuthorAccountId?: string;
 }
 
@@ -93,6 +94,7 @@ export async function syncKimaiTimesheetToJira(
       direction: 'kimai-to-jira',
       jiraIssueKey: change.jiraIssueKey,
       kimaiTimesheetId: change.kimaiTimesheetId,
+      kimaiUserId: change.kimaiUserId,
       result: 'failure',
     });
     throw new Error('Kimai timesheet synchronization is busy; retry the event.');

@@ -348,4 +348,21 @@ describe('issue context resolver', () => {
     });
     expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
   });
+
+  it('converts a local manual-entry time to UTC using Date#getTimezoneOffset semantics', async () => {
+    const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
+
+    await createManualTimeEntry({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {
+        customerId: 1, date: '2026-08-30', startTime: '09:00', duration: '01:00:00',
+        // UTC-4: Date#getTimezoneOffset() returns +240 minutes.
+        timezoneOffsetMinutes: 240,
+      },
+    });
+
+    expect(mockCreateTimesheet).toHaveBeenCalledWith(expect.objectContaining({
+      begin: '2026-08-30T13:00:00', end: '2026-08-30T14:00:00',
+    }));
+  });
 });

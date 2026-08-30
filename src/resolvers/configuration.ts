@@ -32,12 +32,7 @@ resolver.define('saveConnectionSettings', async (request) => {
   if (!url) {
     return { ok: false, error: 'A valid Kimai URL is required.' };
   }
-  if (existing?.url && existing.url !== url) {
-    return {
-      ok: false,
-      error: 'Changing the Kimai URL requires reconnecting the personal Kimai token for each user.',
-    };
-  }
+  const kimaiUrlChanged = Boolean(existing?.url && existing.url !== url);
 
   if (
     Object.prototype.hasOwnProperty.call(payload, 'defaultProjectId')
@@ -68,7 +63,13 @@ resolver.define('saveConnectionSettings', async (request) => {
   };
   await setKimaiConfig(config);
 
-  return { ok: true, config };
+  return {
+    ok: true,
+    config,
+    // User mappings are bound to the previous base URL and are treated as
+    // disconnected until each user verifies a token against this new origin.
+    credentialsNeedReconnect: kimaiUrlChanged,
+  };
 });
 
 resolver.define('saveSyncSettings', async (request) => {

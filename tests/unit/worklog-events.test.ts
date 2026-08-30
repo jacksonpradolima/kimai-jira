@@ -2,15 +2,23 @@ const mockGetIssueKey = jest.fn();
 const mockGetKimaiConfig = jest.fn();
 const mockGetPersonalKimaiApiToken = jest.fn();
 const mockGetUserMapping = jest.fn();
+const mockGetUserMappingByKimaiUserId = jest.fn();
+const mockGetSyncSettings = jest.fn();
 const mockGetMappingByJiraWorklogId = jest.fn();
 const mockSyncJiraWorklogToKimai = jest.fn();
 
 jest.mock('../../src/jira/client', () => ({
   ForgeJiraClient: jest.fn(() => ({ getIssueKey: mockGetIssueKey })),
 }));
-jest.mock('../../src/storage/config', () => ({ getKimaiConfig: mockGetKimaiConfig }));
+jest.mock('../../src/storage/config', () => ({
+  getKimaiConfig: mockGetKimaiConfig,
+  getSyncSettings: mockGetSyncSettings,
+}));
 jest.mock('../../src/storage/secrets', () => ({ getPersonalKimaiApiToken: mockGetPersonalKimaiApiToken }));
-jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping }));
+jest.mock('../../src/storage/users', () => ({
+  getUserMapping: mockGetUserMapping,
+  getUserMappingByKimaiUserId: mockGetUserMappingByKimaiUserId,
+}));
 jest.mock('../../src/sync/jira-to-kimai', () => ({
   syncJiraWorklogToKimai: mockSyncJiraWorklogToKimai,
 }));
@@ -30,7 +38,14 @@ describe('Jira worklog event handler', () => {
       defaultActivityId: 2,
     });
     mockGetPersonalKimaiApiToken.mockResolvedValue('token');
-    mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, kimaiBaseUrl: 'https://kimai.example.test', enabled: true });
+    mockGetUserMapping.mockResolvedValue({
+      jiraAccountId: '712020:abc123', kimaiUserId: 42,
+      kimaiBaseUrl: 'https://kimai.example.test', enabled: true,
+    });
+    mockGetUserMappingByKimaiUserId.mockResolvedValue(undefined);
+    mockGetSyncSettings.mockResolvedValue({
+      jiraToKimai: true, kimaiToJira: true, allowCreate: true, allowUpdate: true, allowDelete: false,
+    });
     mockGetMappingByJiraWorklogId.mockResolvedValue(undefined);
   });
 
@@ -92,13 +107,18 @@ describe('Jira worklog event handler', () => {
     })).toBe('Worked with @Alice :wave:');
   });
 
-  it('updates an existing Kimai mapping even when Jira reports the app as the author', async () => {
+  it('uses the mapped owner token when Jira reports the app as the author', async () => {
     mockGetUserMapping.mockResolvedValue(undefined);
+    mockGetUserMappingByKimaiUserId.mockResolvedValue({
+      jiraAccountId: '712020:source', kimaiUserId: 42,
+      kimaiBaseUrl: 'https://kimai.example.test', enabled: true,
+    });
     mockGetMappingByJiraWorklogId.mockResolvedValue({
       jiraIssueId: '10001',
       jiraIssueKey: 'BA-3',
       jiraWorklogId: '100271',
       kimaiTimesheetId: 8291,
+      kimaiUserId: 42,
       origin: 'kimai',
       lastSyncedAt: '2026-08-27T09:00:00.000Z',
     });
@@ -120,9 +140,26 @@ describe('Jira worklog event handler', () => {
       expect.anything(),
       expect.objectContaining({
         jiraWorklogId: '100271',
-        kimaiUserId: undefined,
+        authorAccountId: '712020:source',
+        kimaiUserId: 42,
         comment: 'Updated by Jira administrator',
       }),
     );
+    expect(mockGetPersonalKimaiApiToken).toHaveBeenCalledWith('712020:source');
+  });
+
+  it('does not invoke Jira-to-Kimai sync when the direction is disabled', async () => {
+    mockGetSyncSettings.mockResolvedValue({
+      jiraToKimai: false, kimaiToJira: true, allowCreate: true, allowUpdate: true, allowDelete: false,
+    });
+
+    await handler({
+      eventType: 'avi:jira:created:worklog',
+      worklog: {
+        id: '100271', issueId: '10001', started: '2026-08-27T10:00:00.000Z', timeSpentSeconds: 3600,
+      },
+    });
+
+    expect(mockSyncJiraWorklogToKimai).not.toHaveBeenCalled();
   });
 });

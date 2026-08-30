@@ -99,7 +99,9 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   }
   const [year, month, day] = date.split('-').map(Number);
   const [hours, minutes] = time.split(':').map(Number);
-  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) - timezoneOffsetMinutes * 60 * 1000;
+  // Date#getTimezoneOffset is UTC minus local time. Add it to turn the wall-clock
+  // date/time selected in the browser into the corresponding UTC instant.
+  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000;
   return new Date(utcMillis).toISOString().slice(0, 19);
 }
 

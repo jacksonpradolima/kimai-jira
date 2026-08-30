@@ -2,6 +2,7 @@ import { JiraClient } from '../../jira/client';
 import { syncKimaiTimesheetToJira } from '../../sync/kimai-to-jira';
 import { getMappingByKimaiTimesheetId } from '../../sync/mapping';
 import { KimaiTimesheetPayload, resolveEnabledKimaiUser, resolveIssueKey } from './timesheet-created';
+import { getSyncSettings } from '../../storage/config';
 
 /**
  * Handles a `timesheet.updated` Kimai webhook event. Uses the same sync
@@ -15,10 +16,13 @@ export async function handleTimesheetUpdated(
   if (!payload.end) {
     return;
   }
+  const sync = await getSyncSettings();
+  if (!sync.kimaiToJira) return;
   const userMapping = await resolveEnabledKimaiUser(payload);
   if (!userMapping) return;
-  const jiraIssueKey = resolveIssueKey(payload)
-    ?? (await getMappingByKimaiTimesheetId(payload.id))?.jiraIssueKey;
+  const mapping = await getMappingByKimaiTimesheetId(payload.id);
+  if ((mapping && !sync.allowUpdate) || (!mapping && !sync.allowCreate)) return;
+  const jiraIssueKey = resolveIssueKey(payload) ?? mapping?.jiraIssueKey;
   if (!jiraIssueKey) {
     return;
   }
@@ -30,6 +34,7 @@ export async function handleTimesheetUpdated(
     end: payload.end,
     description: payload.description,
     modifiedAt: payload.modifiedAt,
+    kimaiUserId: userMapping.kimaiUserId,
     jiraAuthorAccountId: userMapping.jiraAccountId,
   });
 }
