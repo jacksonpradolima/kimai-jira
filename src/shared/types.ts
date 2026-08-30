@@ -50,10 +50,27 @@ export interface KimaiProject {
   customer: number;
 }
 
+export interface KimaiCustomer {
+  id: number;
+  name: string;
+}
+
 export interface KimaiActivity {
   id: number;
   name: string;
   project?: number | null;
+}
+
+export interface CreateKimaiProjectInput {
+  name: string;
+  customer: number;
+  visible: boolean;
+}
+
+export interface CreateKimaiActivityInput {
+  name: string;
+  project: number;
+  visible: boolean;
 }
 
 export interface CreateTimesheetInput {

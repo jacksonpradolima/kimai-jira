@@ -29,13 +29,39 @@ flowchart TB
   root --> kimai["kimai/: Kimai REST API client"]
   root --> webhooks["webhooks/: Web trigger handler, signature verification, event handlers"]
   root --> sync["sync/: Synchronization policy, mapping, idempotency, conflict resolution"]
-  root --> storage["storage/: Forge KVS and secret storage helpers"]
+  root --> storage["storage/: Forge KVS, secret storage, and Jira target mappings"]
   root --> shared["shared/: Cross-cutting types, logging, errors, validation"]
 ```
 
 `jira/`, `kimai/` and `sync/` are intentionally separate: neither Jira- nor Kimai-specific code
 implements synchronization policy directly, which keeps both integrations swappable and testable
 in isolation.
+
+### Issue timer target provisioning
+
+The issue timer uses a Kimai customer selected in the Jira issue panel. The selected customer is
+stored as the default for that Jira project, so a later timer started for another issue in the same
+project preselects it. The user can choose another customer before starting a timer; that choice
+becomes the new project default.
+
+```mermaid
+flowchart TD
+  panel["Jira issue timer panel"] --> customers["Load Kimai customers"]
+  customers --> available{"Any customers available?"}
+  available -- No --> missing["Show: create a customer in Kimai"]
+  available -- Yes --> selected["Preselect the Jira project's saved customer<br/>or let the user choose another"]
+  selected --> target{"Issue target already mapped<br/>for the selected customer?"}
+  target -- Yes --> reuse["Reuse the mapped Kimai project and activity"]
+  target -- No --> project["Find or create Kimai project<br/>from the Jira project"]
+  project --> activity["Find or create project-specific Kimai activity<br/>from the Jira issue"]
+  activity --> persist["Save the Jira project customer default<br/>and issue target mapping"]
+  reuse --> timer["Start Kimai timer"]
+  persist --> timer
+```
+
+Kimai projects and activities are created only after the user presses **Start**. The timer controls
+disable while that request is pending, and the backend also holds a short-lived claim to prevent a
+duplicate start for the same Kimai user and Jira issue.
 
 ## Data flow
 

@@ -24,8 +24,11 @@ function buildClient(overrides: Partial<KimaiClient> = {}): KimaiClient {
     deleteTimesheet: jest.fn(),
     startTimer: jest.fn(),
     stopTimer: jest.fn(),
+    getCustomers: jest.fn(),
     getProjects: jest.fn(),
     getActivities: jest.fn(),
+    createProject: jest.fn(),
+    createActivity: jest.fn(),
     ...overrides,
   };
 }

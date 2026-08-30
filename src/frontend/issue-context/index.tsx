@@ -1,14 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ForgeReconciler, { Text, LoadingButton, Stack, Tabs, Tab, TabList, TabPanel } from '@forge/react';
+import ForgeReconciler, {
+  Text,
+  LoadingButton,
+  Select,
+  Stack,
+  Tabs,
+  Tab,
+  TabList,
+  TabPanel,
+} from '@forge/react';
 import { invoke, view } from '@forge/bridge';
 
 interface TimerState {
   configured: boolean;
   kimaiUrl?: string;
-  defaultProjectId?: number;
-  defaultActivityId?: number;
+  customers?: KimaiCustomer[];
+  defaultKimaiCustomerId?: number;
+  target?: KimaiTarget;
   runningTimesheet?: Timesheet;
   timerUnavailable?: boolean;
+  timerSetupError?: string;
+}
+
+interface KimaiCustomer {
+  id: number;
+  name: string;
+}
+
+interface KimaiTarget {
+  status: 'existing' | 'to-be-created';
+  kimaiCustomerId?: number;
+  projectId?: number;
+  activityId?: number;
+  projectName: string;
+  activityName: string;
 }
 
 interface Timesheet {
@@ -40,6 +65,7 @@ const App = () => {
   const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
   const [isTimerActionPending, setIsTimerActionPending] = useState(false);
+  const [selectedKimaiCustomerId, setSelectedKimaiCustomerId] = useState<number | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
   const timerActionInFlight = useRef(false);
 
@@ -54,6 +80,7 @@ const App = () => {
         const timerState = result as TimerState;
         setState(timerState);
         setRunningTimesheet(timerState.runningTimesheet);
+        setSelectedKimaiCustomerId(timerState.defaultKimaiCustomerId);
       })
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);
@@ -72,15 +99,19 @@ const App = () => {
     if (timerActionInFlight.current) {
       return;
     }
-    if (!state?.defaultProjectId || !state?.defaultActivityId || !issueKey) {
-      setError('Open a Jira issue after setting the default Kimai project and activity.');
+    if (!issueKey) {
+      setError('Open a Jira issue before starting a timer.');
+      return;
+    }
+    if (!selectedKimaiCustomerId) {
+      setError('Select a Kimai customer before starting a timer.');
       return;
     }
 
     timerActionInFlight.current = true;
     setIsTimerActionPending(true);
     try {
-      const result = (await invoke('startTimer', {})) as {
+      const result = (await invoke('startTimer', { customerId: selectedKimaiCustomerId })) as {
         ok?: boolean;
         error?: string;
         timesheet?: Timesheet;
@@ -136,6 +167,14 @@ const App = () => {
     return <Text>Kimai is not configured yet. Ask a site administrator to set it up.</Text>;
   }
 
+  const customerOptions = (state.customers ?? []).map((customer) => ({
+    label: customer.name,
+    value: customer.id,
+  }));
+  const selectedCustomer = customerOptions.find((option) => option.value === selectedKimaiCustomerId) ?? null;
+  const targetWillBeCreated = state.target?.status === 'to-be-created'
+    || state.target?.kimaiCustomerId !== selectedKimaiCustomerId;
+
   return (
     <Stack space="space.100">
       <Tabs id="kimai-tabs">
@@ -147,8 +186,35 @@ const App = () => {
           <Stack space="space.100">
             {state.timerUnavailable ? (
               <Text>Unable to verify the active Kimai timer. Try again shortly.</Text>
+            ) : state.timerSetupError ? (
+              <Text>{state.timerSetupError}</Text>
             ) : (
               <>
+                {customerOptions.length === 0 ? (
+                  <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
+                ) : (
+                  <Select
+                    inputId="kimai-customer"
+                    isDisabled={Boolean(runningTimesheet) || isTimerActionPending}
+                    name="kimai-customer"
+                    onChange={(option) => {
+                      const selected = option as { value?: unknown } | null;
+                      setSelectedKimaiCustomerId(
+                        typeof selected?.value === 'number' ? selected.value : undefined,
+                      );
+                    }}
+                    options={customerOptions}
+                    placeholder="Select a Kimai customer"
+                    value={selectedCustomer}
+                  />
+                )}
+                {state.target && selectedKimaiCustomerId && (
+                  <Text>
+                    {targetWillBeCreated
+                      ? `Kimai target: ${state.target.projectName} / ${state.target.activityName} (to be created)`
+                      : `Kimai target: ${state.target.projectName} / ${state.target.activityName}`}
+                  </Text>
+                )}
                 <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
                 {runningTimesheet ? (
                   <LoadingButton
@@ -162,7 +228,7 @@ const App = () => {
                 ) : (
                   <LoadingButton
                     appearance="primary"
-                    isDisabled={isTimerActionPending}
+                    isDisabled={isTimerActionPending || customerOptions.length === 0 || !selectedKimaiCustomerId}
                     isLoading={isTimerActionPending}
                     onClick={handleStart}
                   >

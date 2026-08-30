@@ -56,6 +56,24 @@ describe('ForgeJiraClient', () => {
     await expect(new ForgeJiraClient().getIssueKey('10001')).resolves.toBe('BA-3');
   });
 
+  it('loads issue details required for timer target provisioning', async () => {
+    mockRequestJira.mockResolvedValue(successfulResponse({
+      id: '10001',
+      key: 'BA-3',
+      fields: {
+        summary: 'Improve billing',
+        project: { id: '10000', key: 'BA', name: 'Billing' },
+      },
+    }));
+
+    await expect(new ForgeJiraClient().getIssueDetails('BA-3')).resolves.toEqual({
+      id: '10001',
+      key: 'BA-3',
+      summary: 'Improve billing',
+      project: { id: '10000', key: 'BA', name: 'Billing' },
+    });
+  });
+
   it('sends an empty ADF document when an update clears a worklog comment', async () => {
     mockRequestJira.mockResolvedValue(
       successfulResponse({ id: '100271', issueId: '10001', started: '', timeSpentSeconds: 60 }),

@@ -25,6 +25,17 @@ export interface JiraIssueResolver {
   getIssueKey(issueIdOrKey: string): Promise<string>;
 }
 
+export interface JiraIssueDetails {
+  id: string;
+  key: string;
+  summary: string;
+  project: {
+    id: string;
+    key: string;
+    name: string;
+  };
+}
+
 interface JiraAdfDocument {
   type: 'doc';
   version: 1;
@@ -154,6 +165,43 @@ export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
     }
 
     return issue.key;
+  }
+
+  async getIssueDetails(issueIdOrKey: string): Promise<JiraIssueDetails> {
+    const response = await asApp().requestJira(
+      route`/rest/api/3/issue/${issueIdOrKey}?fields=summary,project`,
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `Jira issue lookup failed (${response.status} ${response.statusText}): ${message}`,
+      );
+    }
+
+    const issue = (await response.json()) as {
+      id?: unknown;
+      key?: unknown;
+      fields?: { summary?: unknown; project?: { id?: unknown; key?: unknown; name?: unknown } };
+    };
+    const project = issue.fields?.project;
+    if (
+      typeof issue.id !== 'string'
+      || typeof issue.key !== 'string'
+      || typeof issue.fields?.summary !== 'string'
+      || typeof project?.id !== 'string'
+      || typeof project.key !== 'string'
+      || typeof project.name !== 'string'
+    ) {
+      throw new Error(`Jira issue lookup returned incomplete details for ${issueIdOrKey}`);
+    }
+
+    return {
+      id: issue.id,
+      key: issue.key,
+      summary: issue.fields.summary,
+      project: { id: project.id, key: project.key, name: project.name },
+    };
   }
 }
 

@@ -1,6 +1,9 @@
 import {
+  CreateKimaiActivityInput,
+  CreateKimaiProjectInput,
   CreateTimesheetInput,
   KimaiActivity,
+  KimaiCustomer,
   KimaiProject,
   KimaiTimesheet,
   KimaiUser,
@@ -18,8 +21,11 @@ export interface KimaiClient {
   deleteTimesheet(id: number): Promise<void>;
   startTimer(input: StartTimerInput): Promise<KimaiTimesheet>;
   stopTimer(id: number): Promise<KimaiTimesheet>;
+  getCustomers(): Promise<KimaiCustomer[]>;
   getProjects(): Promise<KimaiProject[]>;
   getActivities(projectId?: number): Promise<KimaiActivity[]>;
+  createProject(input: CreateKimaiProjectInput): Promise<KimaiProject>;
+  createActivity(input: CreateKimaiActivityInput): Promise<KimaiActivity>;
 }
 
 export interface KimaiClientOptions {
@@ -116,6 +122,10 @@ export class HttpKimaiClient implements KimaiClient {
     });
   }
 
+  getCustomers(): Promise<KimaiCustomer[]> {
+    return this.request<KimaiCustomer[]>('/api/customers');
+  }
+
   getProjects(): Promise<KimaiProject[]> {
     return this.request<KimaiProject[]>('/api/projects');
   }
@@ -123,5 +133,19 @@ export class HttpKimaiClient implements KimaiClient {
   getActivities(projectId?: number): Promise<KimaiActivity[]> {
     const query = projectId ? `?project=${projectId}` : '';
     return this.request<KimaiActivity[]>(`/api/activities${query}`);
+  }
+
+  createProject(input: CreateKimaiProjectInput): Promise<KimaiProject> {
+    return this.request<KimaiProject>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  createActivity(input: CreateKimaiActivityInput): Promise<KimaiActivity> {
+    return this.request<KimaiActivity>('/api/activities', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   }
 }
