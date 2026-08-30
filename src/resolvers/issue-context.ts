@@ -249,6 +249,7 @@ resolver.define('getIssueTimerState', async (request) => {
   let timerUnavailable = false;
   let timerSetupError: string | undefined;
   let customers: Array<{ id: number; name: string }> = [];
+  let issueSummary: string | undefined;
   let defaultKimaiCustomerId: number | undefined;
   let target:
     | {
@@ -265,20 +266,10 @@ resolver.define('getIssueTimerState', async (request) => {
   } else if (!issueKey) {
     timerSetupError = 'Open a Jira issue before starting a timer.';
   } else {
+    const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
     try {
-      const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
-      const jiraClient = new ForgeJiraClient();
-      const [activeTimesheets, jiraIssue, loadedCustomers] = await Promise.all([
-        client.getActiveTimesheets(userMapping!.kimaiUserId),
-        jiraClient.getIssueDetails(issueKey),
-        client.getCustomers(),
-      ]);
-      const issueMarker = `[${issueKey}]`;
-      const active = activeTimesheets.find((timesheet) =>
-        timesheet.description?.startsWith(issueMarker),
-      );
-      runningTimesheet = active ? { id: active.id, begin: active.begin } : undefined;
-      customers = loadedCustomers.map((customer) => ({ id: customer.id, name: customer.name }));
+      const jiraIssue = await new ForgeJiraClient().getIssueDetails(issueKey);
+      issueSummary = jiraIssue.summary;
       const [projectCustomer, issueTarget] = await Promise.all([
         getJiraProjectCustomerMapping(jiraIssue.project.id),
         getJiraIssueKimaiTarget(jiraIssue.id),
@@ -296,8 +287,21 @@ resolver.define('getIssueTimerState', async (request) => {
         : {
             status: 'to-be-created',
             projectName: timerProjectName(jiraIssue),
-            activityName: timerActivityName(jiraIssue),
-          };
+          activityName: timerActivityName(jiraIssue),
+        };
+    } catch {
+      timerUnavailable = true;
+    }
+    try {
+      const loadedCustomers = await client.getCustomers();
+      customers = loadedCustomers.map((customer) => ({ id: customer.id, name: customer.name }));
+    } catch {
+      timerUnavailable = true;
+    }
+    try {
+      const activeTimesheets = await client.getActiveTimesheets(userMapping!.kimaiUserId);
+      const active = activeTimesheets.find((timesheet) => timesheet.description?.startsWith(`[${issueKey}]`));
+      runningTimesheet = active ? { id: active.id, begin: active.begin } : undefined;
     } catch {
       timerUnavailable = true;
     }
@@ -308,6 +312,8 @@ resolver.define('getIssueTimerState', async (request) => {
     personalTokenConfigured: true,
     connectedKimaiUser: userMapping?.kimaiUsername,
     kimaiUrl: config.url,
+    issueKey,
+    issueSummary,
     customers,
     defaultKimaiCustomerId,
     target,

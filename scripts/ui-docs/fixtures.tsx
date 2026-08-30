@@ -47,6 +47,7 @@ function issueFixture(
         isManualEntryPending={false}
         isPersonalConnectionPending={false}
         isTimerActionPending={false}
+        onConnectionBack={noop}
         onCustomerChange={noop}
         onManageConnection={noop}
         onCreateManualEntry={noop}

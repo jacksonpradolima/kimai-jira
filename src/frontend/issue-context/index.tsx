@@ -20,7 +20,8 @@ function localDateInputValue(): string {
 }
 
 function defaultManualDescription(timerState: TimerState | undefined): string {
-  return timerState?.target?.activityName ?? '';
+  if (!timerState?.issueKey || !timerState.issueSummary) return '';
+  return `[${timerState.issueKey}] ${timerState.issueSummary}`;
 }
 
 function manualTotalDuration(startTime: string, endTime: string): string {
@@ -52,6 +53,7 @@ const App = () => {
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
   const [isTimerActionPending, setIsTimerActionPending] = useState(false);
   const [isManagingConnection, setIsManagingConnection] = useState(false);
+  const [activeTab, setActiveTab] = useState<'timer' | 'manual'>('manual');
   const [isPersonalConnectionPending, setIsPersonalConnectionPending] = useState(false);
   const [personalApiToken, setPersonalApiToken] = useState('');
   const [personalConnectionMessage, setPersonalConnectionMessage] = useState<string | undefined>(undefined);
@@ -248,7 +250,12 @@ const App = () => {
       onCustomerChange={setSelectedKimaiCustomerId}
       onManageConnection={() => {
         setIsManagingConnection(true);
+        setActiveTab('timer');
         setPersonalConnectionMessage(undefined);
+      }}
+      onConnectionBack={() => {
+        setIsManagingConnection(false);
+        setActiveTab('manual');
       }}
       onCreateManualEntry={handleCreateManualEntry}
       onManualBillableChange={setManualBillable}
@@ -283,6 +290,7 @@ const App = () => {
       manualTagInput={manualTagInput}
       manualTotalDuration={totalManualDuration}
       selectedKimaiCustomerId={selectedKimaiCustomerId}
+      activeTab={activeTab}
       state={{ ...state, runningTimesheet }}
     />
   );

@@ -185,6 +185,8 @@ describe('issue context resolver', () => {
     expect(mockGetActiveTimesheets).toHaveBeenCalledWith(42);
     expect(result).toEqual(expect.objectContaining({
       runningTimesheet: { id: 8291, begin: '2026-08-29T10:00:00.000Z' },
+      issueKey: 'BA-3',
+      issueSummary: 'Improve billing',
     }));
   });
 
@@ -197,7 +199,11 @@ describe('issue context resolver', () => {
       payload: {},
     });
 
-    expect(result).toEqual(expect.objectContaining({ timerUnavailable: true }));
+    expect(result).toEqual(expect.objectContaining({
+      timerUnavailable: true,
+      customers: [{ id: 1, name: 'Acme' }],
+      issueSummary: 'Improve billing',
+    }));
   });
 
   it('refuses to start a timer when Kimai has no customers', async () => {

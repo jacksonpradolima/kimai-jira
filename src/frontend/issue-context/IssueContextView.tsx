@@ -1,7 +1,6 @@
 import {
   Button,
   Box,
-  Checkbox,
   FormSection,
   Inline,
   Label,
@@ -17,6 +16,8 @@ import {
   Text,
   TextArea,
   Textfield,
+  Toggle,
+  Tooltip,
   xcss,
 } from '@forge/react';
 
@@ -38,6 +39,8 @@ export interface TimerState {
   personalTokenConfigured?: boolean;
   connectedKimaiUser?: string;
   kimaiUrl?: string;
+  issueKey?: string;
+  issueSummary?: string;
   customers?: KimaiCustomer[];
   defaultKimaiCustomerId?: number;
   target?: KimaiTarget;
@@ -69,6 +72,7 @@ export interface IssueContextViewProps {
   activeTab?: 'timer' | 'manual';
   onCustomerChange: (customerId: number | undefined) => void;
   onManageConnection: () => void;
+  onConnectionBack: () => void;
   onPersonalApiTokenChange: (value: string) => void;
   onSavePersonalToken: () => void;
   onResetPersonalToken: () => void;
@@ -113,6 +117,7 @@ export const IssueContextView = ({
   activeTab = 'manual',
   onCustomerChange,
   onManageConnection,
+  onConnectionBack,
   onPersonalApiTokenChange,
   onSavePersonalToken,
   onResetPersonalToken,
@@ -142,6 +147,7 @@ export const IssueContextView = ({
       isPending={isPersonalConnectionPending}
       message={personalConnectionMessage}
       onManage={onManageConnection}
+      onBack={onConnectionBack}
       onReset={onResetPersonalToken}
       onSave={onSavePersonalToken}
       onTokenChange={onPersonalApiTokenChange}
@@ -151,7 +157,7 @@ export const IssueContextView = ({
 
   return (
     <Stack space="space.100">
-      <Tabs defaultSelected={activeTab === 'timer' ? 1 : 0} id="kimai-tabs">
+      <Tabs key={activeTab} defaultSelected={activeTab === 'timer' ? 1 : 0} id="kimai-tabs">
         <TabList><Tab>Manual</Tab><Tab>Timer</Tab></TabList>
         <TabPanel>
           <ManualTimeEntry
@@ -190,6 +196,7 @@ export const IssueContextView = ({
                 isPending={isPersonalConnectionPending}
                 message={personalConnectionMessage ?? 'Add your personal Kimai API token to start tracking time.'}
                 onManage={onManageConnection}
+                onBack={onConnectionBack}
                 onReset={onResetPersonalToken}
                 onSave={onSavePersonalToken}
                 onTokenChange={onPersonalApiTokenChange}
@@ -266,6 +273,7 @@ interface PersonalKimaiConnectionProps {
   message?: string;
   token: string;
   onManage: () => void;
+  onBack: () => void;
   onTokenChange: (value: string) => void;
   onSave: () => void;
   onReset: () => void;
@@ -303,6 +311,20 @@ function ManualTimeEntry({
   isPending, message, onCustomerChange, onDescriptionChange, onDateChange,
   onStartTimeChange, onEndTimeChange, onTagInputChange, onAddTag, onRemoveTag, onManageConnection, onBillableChange, onCreate,
 }: ManualTimeEntryProps) {
+  const blockingReason = !state.personalTokenConfigured
+    ? 'Add your personal Kimai API token before adding time.'
+    : state.timerSetupError
+      ? state.timerSetupError
+      : state.timerUnavailable
+        ? 'Kimai could not be reached. Try again shortly.'
+        : customerOptions.length === 0
+          ? 'No Kimai customers are available.'
+          : !selectedCustomer
+            ? 'Select a Kimai customer.'
+            : totalDuration === '—'
+              ? 'End time must be after start time.'
+              : undefined;
+  const isCreateDisabled = isPending || Boolean(blockingReason);
   return (
     <Stack space="space.100">
       <FormSection>
@@ -325,15 +347,20 @@ function ManualTimeEntry({
       </Inline>
       <FormSection>
         <Label labelFor="manual-total-duration">Total duration</Label>
-        <Textfield id="manual-total-duration" isReadOnly value={totalDuration} />
+        <Textfield id="manual-total-duration" isDisabled value={totalDuration} />
       </FormSection>
-      <LoadingButton
-        appearance="primary"
-        isDisabled={isPending || !selectedCustomer || totalDuration === '—'}
-        isLoading={isPending}
-        onClick={onCreate}
-        shouldFitContainer
-      >Add time</LoadingButton>
+      {blockingReason && <Text>Add time is unavailable: {blockingReason}</Text>}
+      <Tooltip content={blockingReason ?? 'Add this time entry to Kimai.'}>
+        <Box>
+          <LoadingButton
+            appearance="primary"
+            isDisabled={isCreateDisabled}
+            isLoading={isPending}
+            onClick={onCreate}
+            shouldFitContainer
+          >Add time</LoadingButton>
+        </Box>
+      </Tooltip>
       <Box xcss={xcss({
         borderBlockStartColor: 'color.border',
         borderBlockStartWidth: 'border.width',
@@ -364,22 +391,20 @@ function ManualTimeEntry({
           </FormSection>
           <FormSection>
             <Label labelFor="manual-tags">Tags</Label>
-            <Inline alignBlock="end" grow="fill" space="space.100">
-              <Textfield id="manual-tags" placeholder="Type a tag" value={tagInput} onChange={(event: { target: { value?: unknown } }) => onTagInputChange(String(event.target.value ?? ''))} />
-              <Button isDisabled={!tagInput.trim()} onClick={onAddTag}>Add tag</Button>
-            </Inline>
+            <Textfield id="manual-tags" placeholder="Type a tag, then choose Add tag" value={tagInput} onChange={(event: { target: { value?: unknown } }) => onTagInputChange(String(event.target.value ?? ''))} />
+            <Button appearance="subtle" isDisabled={!tagInput.trim()} onClick={onAddTag}>Add tag</Button>
             {tags.length > 0 && (
               <TagGroup>
                 {tags.map((tag) => (
                   <Inline key={tag} alignBlock="center" space="space.050">
-                    <Tag text={tag} />
-                    <Button onClick={() => onRemoveTag(tag)}>Remove {tag}</Button>
+                    <Tag color="blueLight" text={tag} />
+                    <Button appearance="subtle" onClick={() => onRemoveTag(tag)}>Remove</Button>
                   </Inline>
                 ))}
               </TagGroup>
             )}
           </FormSection>
-          <Checkbox label="Billable" isChecked={billable} onChange={(event: { target: { checked?: unknown } }) => onBillableChange(event.target.checked === true)} />
+          <Toggle key={String(billable)} defaultChecked={billable} label="Billable" name="manual-billable" onChange={(event) => onBillableChange((event as unknown as { target?: { checked?: unknown } }).target?.checked === true)} />
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>
@@ -389,13 +414,14 @@ function ManualTimeEntry({
 }
 
 function PersonalKimaiConnection({
-  connectedUser, hasPersonalToken, isManagingConnection, isPending, message, token, onManage, onTokenChange, onSave, onReset,
+  connectedUser, hasPersonalToken, isManagingConnection, isPending, message, token, onManage, onBack, onTokenChange, onSave, onReset,
 }: PersonalKimaiConnectionProps) {
   if (!isManagingConnection) {
     return <><Text>{connectedUser ? `Connected to Kimai as ${connectedUser}.` : message ?? ''}</Text><Button onClick={onManage}>Manage Kimai connection</Button></>;
   }
   return (
     <Stack space="space.100">
+      <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back to time entry</Button>
       <Text>Your Kimai API token is personal. It is encrypted and only used for your timers and worklogs.</Text>
       <FormSection>
         <Label labelFor="personal-kimai-token">Kimai API token</Label>
