@@ -22,6 +22,7 @@ export interface WorklogMapping {
 export interface UserMapping {
   jiraAccountId: string;
   kimaiUserId: number;
+  kimaiUsername?: string;
   enabled: boolean;
 }
 
@@ -95,7 +96,6 @@ export interface StartTimerInput {
 
 export interface KimaiConfig {
   url: string;
-  hasToken: boolean;
   defaultProjectId?: number;
   defaultActivityId?: number;
 }

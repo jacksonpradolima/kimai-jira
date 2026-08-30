@@ -6,9 +6,11 @@ See `SECURITY.md` in the repository root for how to privately report a security 
 
 ## Credential handling
 
-- Kimai API tokens and the Kimai webhook secret are stored using the Forge encrypted Secret Store
+- Personal Kimai API tokens and the Kimai webhook secret are stored using the Forge encrypted Secret Store
   (`kvs.setSecret` / `kvs.getSecret`), never in plain KVS storage, environment variables committed
   to Git, or the app's frontend bundle.
+- A token is keyed by its Jira account ID and is verified using Kimai's `/api/users/me`; the token
+  itself is never returned by a resolver or shown in administration UI.
 - `.env` is git-ignored; only `.env.example` (with empty values) is committed.
 - No Jira/Atlassian credentials, Kimai credentials, or production URLs containing credentials are
   ever committed to this repository.

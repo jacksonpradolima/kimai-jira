@@ -1,23 +1,26 @@
 import { kvs } from '@forge/kvs';
 
-const KIMAI_TOKEN_KEY = 'secret:kimai-token';
 const KIMAI_WEBHOOK_SECRET_KEY = 'secret:kimai-webhook';
+
+function personalKimaiTokenKey(jiraAccountId: string): string {
+  return `secret:kimai-token:${jiraAccountId}`;
+}
 
 /**
  * Credentials are always stored via the Forge encrypted Secret Store
  * (`kvs.setSecret` / `kvs.getSecret`), never in plain KVS, environment
  * variables committed to Git, or in the app's frontend bundle.
  */
-export async function getKimaiApiToken(): Promise<string | undefined> {
-  return kvs.getSecret<string>(KIMAI_TOKEN_KEY);
+export async function getPersonalKimaiApiToken(jiraAccountId: string): Promise<string | undefined> {
+  return kvs.getSecret<string>(personalKimaiTokenKey(jiraAccountId));
 }
 
-export async function setKimaiApiToken(token: string): Promise<void> {
-  await kvs.setSecret(KIMAI_TOKEN_KEY, token);
+export async function setPersonalKimaiApiToken(jiraAccountId: string, token: string): Promise<void> {
+  await kvs.setSecret(personalKimaiTokenKey(jiraAccountId), token);
 }
 
-export async function clearKimaiApiToken(): Promise<void> {
-  await kvs.deleteSecret(KIMAI_TOKEN_KEY);
+export async function clearPersonalKimaiApiToken(jiraAccountId: string): Promise<void> {
+  await kvs.deleteSecret(personalKimaiTokenKey(jiraAccountId));
 }
 
 export async function getKimaiWebhookSecret(): Promise<string | undefined> {

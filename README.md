@@ -31,6 +31,15 @@ npx forge deploy
 npx forge install --demo-site
 ```
 
+## UI Preview
+
+The UI gallery is generated from the same Forge UI Kit view components used by the app. See
+[the complete UI documentation](docs/ui/README.md) for every state and regeneration details.
+
+| Running timer | Administration |
+| --- | --- |
+| ![Running Kimai timer](docs/ui/generated/issue-timer-running.png) | ![Kimai administration](docs/ui/generated/admin-configuration.png) |
+
 ## Status
 
 Early-stage, MVP-focused. See [`docs/architecture.md`](docs/architecture.md) and

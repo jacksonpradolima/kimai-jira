@@ -37,6 +37,17 @@ flowchart TB
 implements synchronization policy directly, which keeps both integrations swappable and testable
 in isolation.
 
+## UI documentation rendering
+
+The production Forge entry points keep platform work (`@forge/bridge`, timers and local state) in
+`src/frontend/issue-context/index.tsx` and `src/frontend/admin/index.tsx`. Their presentation is
+in `IssueContextView.tsx` and `AdminView.tsx`, respectively. These same UI Kit component trees are
+fed deterministic fixture props by `scripts/ui-docs/fixtures.tsx`; no Jira or Kimai request is
+made during documentation generation. The harness captures the Forge reconciler document and uses
+a generic UI Kit adapter inside an original Jira-style documentation shell before Playwright makes
+the PNGs. This makes real view changes affect the committed gallery while keeping platform
+integration out of the fixtures. See [UI documentation](ui/README.md).
+
 ### Issue timer target provisioning
 
 The issue timer uses a Kimai customer selected in the Jira issue panel. The selected customer is
@@ -74,7 +85,7 @@ the target API call and mapping persistence both succeed.
 
 ```mermaid
 flowchart TD
-  jiraEvent["Jira saves a worklog and emits an event"] --> prerequisites{"Kimai configuration, defaults,<br/>and user mapping available?"}
+  jiraEvent["Jira saves a worklog and emits an event"] --> prerequisites{"Kimai configuration, defaults, and<br/>the author's personal connection available?"}
   prerequisites -- No --> skipped["Do not call Kimai or save a mapping<br/>Jira worklog remains; log skipped"]
   prerequisites -- Yes --> duplicate{"Existing mapping has the<br/>same content hash?"}
   duplicate -- Yes --> ignored["Do not write; log duplicate ignored"]

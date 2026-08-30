@@ -15,6 +15,7 @@ nav = [
   { "Jira Setup" = "jira-setup.md" },
   { "Kimai Setup" = "kimai-setup.md" },
   { "Configuration" = "configuration.md" },
+  { "UI Gallery" = "ui/README.md" },
   { "Architecture" = "architecture.md" },
   { "Synchronization Model" = "synchronization-model.md" },
   { "Development" = "development.md" },

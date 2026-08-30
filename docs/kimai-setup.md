@@ -3,7 +3,9 @@
 ## Requirements
 
 - A self-hosted Kimai instance reachable over HTTPS from Atlassian Forge's runtime.
-- A Kimai API token for a user with permission to manage timesheets, projects and activities.
+- A Kimai API token for each Jira user who will track or synchronize their own work. Tokens need
+  permission to manage that user's timesheets and, when timer provisioning is enabled, projects and
+  activities.
 
 ## Declaring egress permissions
 
@@ -23,9 +25,10 @@ embeds credentials (e.g. `******kimai.example.com`).
 
 ## Creating an API token
 
-In Kimai, create a dedicated API user/token for the integration rather than reusing a personal
-account. Paste the token into the app's admin page; it is written directly to the Forge Secret
-Store and never stored in plain configuration or Git.
+Each person creates their own Kimai API token and enters it through **Manage Kimai connection** in
+the Kimai issue panel. The app validates the token against Kimai, identifies that user from
+`/api/users/me`, and writes it directly to the Forge Secret Store. It is never stored in plain
+configuration, Git, or the administration page.
 
 ## Configuring the webhook
 

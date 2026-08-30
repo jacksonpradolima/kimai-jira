@@ -1,6 +1,6 @@
 const mockGetIssueKey = jest.fn();
 const mockGetKimaiConfig = jest.fn();
-const mockGetKimaiApiToken = jest.fn();
+const mockGetPersonalKimaiApiToken = jest.fn();
 const mockGetUserMapping = jest.fn();
 const mockGetMappingByJiraWorklogId = jest.fn();
 const mockSyncJiraWorklogToKimai = jest.fn();
@@ -9,7 +9,7 @@ jest.mock('../../src/jira/client', () => ({
   ForgeJiraClient: jest.fn(() => ({ getIssueKey: mockGetIssueKey })),
 }));
 jest.mock('../../src/storage/config', () => ({ getKimaiConfig: mockGetKimaiConfig }));
-jest.mock('../../src/storage/secrets', () => ({ getKimaiApiToken: mockGetKimaiApiToken }));
+jest.mock('../../src/storage/secrets', () => ({ getPersonalKimaiApiToken: mockGetPersonalKimaiApiToken }));
 jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping }));
 jest.mock('../../src/sync/jira-to-kimai', () => ({
   syncJiraWorklogToKimai: mockSyncJiraWorklogToKimai,
@@ -26,11 +26,10 @@ describe('Jira worklog event handler', () => {
     mockGetIssueKey.mockResolvedValue('BA-3');
     mockGetKimaiConfig.mockResolvedValue({
       url: 'https://kimai.example.test',
-      hasToken: true,
       defaultProjectId: 1,
       defaultActivityId: 2,
     });
-    mockGetKimaiApiToken.mockResolvedValue('token');
+    mockGetPersonalKimaiApiToken.mockResolvedValue('token');
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
     mockGetMappingByJiraWorklogId.mockResolvedValue(undefined);
   });

@@ -18,6 +18,12 @@ It brings a Clockify-like experience to Jira, backed by Kimai instead:
 - **Developers** contributing code — start with [Development](development.md) and
   [Architecture](architecture.md).
 
+## UI documentation
+
+The [UI gallery](ui/README.md) is automatically rendered from the production Forge UI Kit views
+with deterministic fixtures. It includes implemented states, screen flows, and the command CI uses
+to detect stale screenshots.
+
 ## Project status
 
 This project is under active development. See the [Architecture](architecture.md) and

@@ -1,45 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ForgeReconciler, {
-  Text,
-  LoadingButton,
-  Select,
-  Stack,
-  Tabs,
-  Tab,
-  TabList,
-  TabPanel,
-} from '@forge/react';
+import ForgeReconciler, { Text } from '@forge/react';
 import { invoke, view } from '@forge/bridge';
-
-interface TimerState {
-  configured: boolean;
-  kimaiUrl?: string;
-  customers?: KimaiCustomer[];
-  defaultKimaiCustomerId?: number;
-  target?: KimaiTarget;
-  runningTimesheet?: Timesheet;
-  timerUnavailable?: boolean;
-  timerSetupError?: string;
-}
-
-interface KimaiCustomer {
-  id: number;
-  name: string;
-}
-
-interface KimaiTarget {
-  status: 'existing' | 'to-be-created';
-  kimaiCustomerId?: number;
-  projectId?: number;
-  activityId?: number;
-  projectName: string;
-  activityName: string;
-}
-
-interface Timesheet {
-  id: number;
-  begin?: string;
-}
+import { IssueContextView, TimerState, Timesheet } from './IssueContextView';
 
 function formatElapsedTime(startedAt: string | undefined, now: number): string {
   const startMilliseconds = startedAt ? new Date(startedAt).getTime() : now;
@@ -52,22 +14,52 @@ function formatElapsedTime(startedAt: string | undefined, now: number): string {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
-/**
- * Issue-context panel entry point ("jira:issueContext").
- *
- * This is an intentionally small MVP UI: a Timer/Manual tab pair backed by
- * the `issue-context-resolver` Forge function. See docs/architecture.md for
- * the full synchronization design.
- */
+function localDateInputValue(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function defaultManualDescription(timerState: TimerState | undefined): string {
+  return timerState?.target?.activityName ?? '';
+}
+
+function manualTotalDuration(startTime: string, endTime: string): string {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    return '—';
+  }
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  const totalMinutes = minutes(endTime) - minutes(startTime);
+  if (totalMinutes <= 0) return '—';
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}:00`;
+}
+
+/** Forge integration for the issue-context panel. */
 const App = () => {
   const [state, setState] = useState<TimerState | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [issueKey, setIssueKey] = useState<string | undefined>(undefined);
   const [runningTimesheet, setRunningTimesheet] = useState<Timesheet | undefined>(undefined);
   const [isTimerActionPending, setIsTimerActionPending] = useState(false);
+  const [isManagingConnection, setIsManagingConnection] = useState(false);
+  const [isPersonalConnectionPending, setIsPersonalConnectionPending] = useState(false);
+  const [personalApiToken, setPersonalApiToken] = useState('');
+  const [personalConnectionMessage, setPersonalConnectionMessage] = useState<string | undefined>(undefined);
   const [selectedKimaiCustomerId, setSelectedKimaiCustomerId] = useState<number | undefined>(undefined);
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualDate, setManualDate] = useState(localDateInputValue);
+  const [manualStartTime, setManualStartTime] = useState('09:00');
+  const [manualEndTime, setManualEndTime] = useState('10:00');
+  const [manualTags, setManualTags] = useState<string[]>([]);
+  const [manualTagInput, setManualTagInput] = useState('');
+  const [manualBillable, setManualBillable] = useState(false);
+  const [isManualEntryPending, setIsManualEntryPending] = useState(false);
+  const [manualEntryMessage, setManualEntryMessage] = useState<string | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());
   const timerActionInFlight = useRef(false);
+  const manualEntryInFlight = useRef(false);
+  const totalManualDuration = manualTotalDuration(manualStartTime, manualEndTime);
 
   useEffect(() => {
     view.getContext()
@@ -81,6 +73,7 @@ const App = () => {
         setState(timerState);
         setRunningTimesheet(timerState.runningTimesheet);
         setSelectedKimaiCustomerId(timerState.defaultKimaiCustomerId);
+        setManualDescription(defaultManualDescription(timerState));
       })
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);
@@ -89,16 +82,13 @@ const App = () => {
     if (!runningTimesheet) {
       return undefined;
     }
-
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [runningTimesheet]);
 
   const handleStart = async () => {
-    if (timerActionInFlight.current) {
-      return;
-    }
+    if (timerActionInFlight.current) return;
     if (!issueKey) {
       setError('Open a Jira issue before starting a timer.');
       return;
@@ -107,21 +97,16 @@ const App = () => {
       setError('Select a Kimai customer before starting a timer.');
       return;
     }
-
     timerActionInFlight.current = true;
     setIsTimerActionPending(true);
     try {
       const result = (await invoke('startTimer', { customerId: selectedKimaiCustomerId })) as {
-        ok?: boolean;
-        error?: string;
-        timesheet?: Timesheet;
+        ok?: boolean; error?: string; timesheet?: Timesheet;
       };
-
       if (!result?.ok || !result.timesheet) {
         setError(result?.error ?? 'Unable to start the Kimai timer.');
         return;
       }
-
       setRunningTimesheet(result.timesheet);
       setError(undefined);
     } catch (startError) {
@@ -133,22 +118,17 @@ const App = () => {
   };
 
   const handleStop = async () => {
-    if (!runningTimesheet || timerActionInFlight.current) {
-      return;
-    }
-
+    if (!runningTimesheet || timerActionInFlight.current) return;
     timerActionInFlight.current = true;
     setIsTimerActionPending(true);
     try {
-      const result = (await invoke('stopTimer', {
-        timesheetId: runningTimesheet.id,
-      })) as { ok?: boolean; error?: string };
-
+      const result = (await invoke('stopTimer', { timesheetId: runningTimesheet.id })) as {
+        ok?: boolean; error?: string;
+      };
       if (!result?.ok) {
         setError(result?.error ?? 'Unable to stop the Kimai timer.');
         return;
       }
-
       setRunningTimesheet(undefined);
       setError(undefined);
     } catch (stopError) {
@@ -159,99 +139,145 @@ const App = () => {
     }
   };
 
+  const handleSavePersonalToken = async () => {
+    if (!personalApiToken || isPersonalConnectionPending) return;
+    setIsPersonalConnectionPending(true);
+    try {
+      const result = (await invoke('savePersonalKimaiToken', { apiToken: personalApiToken })) as {
+        ok?: boolean;
+        error?: string;
+        user?: { username?: string };
+      };
+      if (!result.ok) {
+        setPersonalConnectionMessage(result.error ?? 'Unable to save your Kimai API token.');
+        return;
+      }
+      const nextState = (await invoke('getIssueTimerState', {})) as TimerState;
+      setState(nextState);
+      setRunningTimesheet(nextState.runningTimesheet);
+      setSelectedKimaiCustomerId(nextState.defaultKimaiCustomerId);
+      setManualDescription(defaultManualDescription(nextState));
+      setPersonalApiToken('');
+      setIsManagingConnection(false);
+      setPersonalConnectionMessage(`Connected to Kimai as ${result.user?.username ?? 'your user'}.`);
+    } catch (connectionError) {
+      setPersonalConnectionMessage(`Unable to save your Kimai API token: ${String(connectionError)}`);
+    } finally {
+      setIsPersonalConnectionPending(false);
+    }
+  };
+
+  const handleResetPersonalToken = async () => {
+    if (isPersonalConnectionPending) return;
+    setIsPersonalConnectionPending(true);
+    try {
+      const result = (await invoke('clearPersonalKimaiToken', {})) as { ok?: boolean; error?: string };
+      if (!result.ok) {
+        setPersonalConnectionMessage(result.error ?? 'Unable to reset your Kimai API token.');
+        return;
+      }
+      setState((current) => current && {
+        ...current,
+        personalTokenConfigured: false,
+        connectedKimaiUser: undefined,
+      });
+      setRunningTimesheet(undefined);
+      setPersonalApiToken('');
+      setIsManagingConnection(false);
+      setPersonalConnectionMessage('Your personal Kimai API token has been reset.');
+    } catch (connectionError) {
+      setPersonalConnectionMessage(`Unable to reset your Kimai API token: ${String(connectionError)}`);
+    } finally {
+      setIsPersonalConnectionPending(false);
+    }
+  };
+
+  const handleCreateManualEntry = async () => {
+    if (manualEntryInFlight.current || !selectedKimaiCustomerId || totalManualDuration === '—') return;
+    manualEntryInFlight.current = true;
+    setIsManualEntryPending(true);
+    try {
+      const result = (await invoke('createManualTimeEntry', {
+        customerId: selectedKimaiCustomerId,
+        description: manualDescription,
+        duration: totalManualDuration,
+        date: manualDate,
+        startTime: manualStartTime,
+        endTime: manualEndTime,
+        tags: manualTags,
+        billable: manualBillable,
+      })) as { ok?: boolean; error?: string; timesheet?: { id?: number } };
+      if (!result.ok) {
+        setManualEntryMessage(result.error ?? 'Unable to add time to Kimai.');
+        return;
+      }
+      setManualDescription(defaultManualDescription(state));
+      setManualTags([]);
+      setManualTagInput('');
+      setManualEntryMessage(`Time entry ${result.timesheet?.id ?? ''} added to Kimai.`.trim());
+    } catch (manualError) {
+      setManualEntryMessage(`Unable to add time to Kimai: ${String(manualError)}`);
+    } finally {
+      manualEntryInFlight.current = false;
+      setIsManualEntryPending(false);
+    }
+  };
+
   if (!state) {
     return <Text>{error ?? 'Loading Kimai...'}</Text>;
   }
 
-  if (!state.configured) {
-    return <Text>Kimai is not configured yet. Ask a site administrator to set it up.</Text>;
-  }
-
-  const customerOptions = (state.customers ?? []).map((customer) => ({
-    label: customer.name,
-    value: customer.id,
-  }));
-  const selectedCustomer = customerOptions.find((option) => option.value === selectedKimaiCustomerId) ?? null;
-  const targetWillBeCreated = state.target?.status === 'to-be-created'
-    || state.target?.kimaiCustomerId !== selectedKimaiCustomerId;
-
   return (
-    <Stack space="space.100">
-      <Tabs id="kimai-tabs">
-        <TabList>
-          <Tab>Timer</Tab>
-          <Tab>Manual</Tab>
-        </TabList>
-        <TabPanel>
-          <Stack space="space.100">
-            {state.timerUnavailable ? (
-              <Text>Unable to verify the active Kimai timer. Try again shortly.</Text>
-            ) : state.timerSetupError ? (
-              <Text>{state.timerSetupError}</Text>
-            ) : (
-              <>
-                {customerOptions.length === 0 ? (
-                  <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
-                ) : (
-                  <Select
-                    inputId="kimai-customer"
-                    isDisabled={Boolean(runningTimesheet) || isTimerActionPending}
-                    name="kimai-customer"
-                    onChange={(option) => {
-                      const selected = option as { value?: unknown } | null;
-                      setSelectedKimaiCustomerId(
-                        typeof selected?.value === 'number' ? selected.value : undefined,
-                      );
-                    }}
-                    options={customerOptions}
-                    placeholder="Select a Kimai customer"
-                    value={selectedCustomer}
-                  />
-                )}
-                {state.target && selectedKimaiCustomerId && (
-                  <Text>
-                    {targetWillBeCreated
-                      ? `Kimai target: ${state.target.projectName} / ${state.target.activityName} (to be created)`
-                      : `Kimai target: ${state.target.projectName} / ${state.target.activityName}`}
-                  </Text>
-                )}
-                <Text>{formatElapsedTime(runningTimesheet?.begin, now)}</Text>
-                {runningTimesheet ? (
-                  <LoadingButton
-                    appearance="primary"
-                    isDisabled={isTimerActionPending}
-                    isLoading={isTimerActionPending}
-                    onClick={handleStop}
-                  >
-                    Stop
-                  </LoadingButton>
-                ) : (
-                  <LoadingButton
-                    appearance="primary"
-                    isDisabled={isTimerActionPending || customerOptions.length === 0 || !selectedKimaiCustomerId}
-                    isLoading={isTimerActionPending}
-                    onClick={handleStart}
-                  >
-                    Start
-                  </LoadingButton>
-                )}
-              </>
-            )}
-            {error && <Text>{error}</Text>}
-          </Stack>
-        </TabPanel>
-        <TabPanel>
-          <Text>Manual time entry coming soon.</Text>
-        </TabPanel>
-      </Tabs>
-    </Stack>
+    <IssueContextView
+      elapsedTime={formatElapsedTime(runningTimesheet?.begin, now)}
+      error={error}
+      isManagingConnection={isManagingConnection}
+      isManualEntryPending={isManualEntryPending}
+      isPersonalConnectionPending={isPersonalConnectionPending}
+      isTimerActionPending={isTimerActionPending}
+      onCustomerChange={setSelectedKimaiCustomerId}
+      onManageConnection={() => {
+        setIsManagingConnection(true);
+        setPersonalConnectionMessage(undefined);
+      }}
+      onCreateManualEntry={handleCreateManualEntry}
+      onManualBillableChange={setManualBillable}
+      onManualDateChange={setManualDate}
+      onManualDescriptionChange={setManualDescription}
+      onManualEndTimeChange={setManualEndTime}
+      onManualStartTimeChange={setManualStartTime}
+      onManualTagInputChange={setManualTagInput}
+      onAddManualTag={() => {
+        const tag = manualTagInput.trim();
+        if (!tag) return;
+        setManualTags((current) => current.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())
+          ? current
+          : [...current, tag]);
+        setManualTagInput('');
+      }}
+      onRemoveManualTag={(tag) => setManualTags((current) => current.filter((value) => value !== tag))}
+      onPersonalApiTokenChange={setPersonalApiToken}
+      onResetPersonalToken={handleResetPersonalToken}
+      onSavePersonalToken={handleSavePersonalToken}
+      onStart={handleStart}
+      onStop={handleStop}
+      personalApiToken={personalApiToken}
+      personalConnectionMessage={personalConnectionMessage}
+      manualBillable={manualBillable}
+      manualDate={manualDate}
+      manualDescription={manualDescription}
+      manualEndTime={manualEndTime}
+      manualEntryMessage={manualEntryMessage}
+      manualStartTime={manualStartTime}
+      manualTags={manualTags}
+      manualTagInput={manualTagInput}
+      manualTotalDuration={totalManualDuration}
+      selectedKimaiCustomerId={selectedKimaiCustomerId}
+      state={{ ...state, runningTimesheet }}
+    />
   );
 };
 
-ForgeReconciler.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+ForgeReconciler.render(<React.StrictMode><App /></React.StrictMode>);
 
 export default App;

@@ -7,9 +7,34 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ui_docs: ${{ steps.filter.outputs.ui_docs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ui_docs:
+              - 'src/frontend/**'
+              - 'src/shared/**'
+              - 'scripts/ui-docs/**'
+              - 'docs/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - '.github/workflows/ci.yml'
+
   validate:
+    needs: changes
     runs-on: ubuntu-latest
     env:
       FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
@@ -30,6 +55,14 @@ jobs:
       - run: npm run typecheck
 
       - run: npm test
+
+      - name: Install Chromium for UI documentation
+        if: needs.changes.outputs.ui_docs == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify generated UI documentation
+        if: needs.changes.outputs.ui_docs == 'true'
+        run: npm run docs:ui:check
 
       # `forge lint` needs an authenticated Forge CLI session to validate
       # manifest.yml and module wiring. It uses a dedicated, non-production

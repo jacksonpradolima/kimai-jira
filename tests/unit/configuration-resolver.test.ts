@@ -24,11 +24,8 @@ jest.mock('../../src/storage/config', () => ({
   setSyncSettings: jest.fn(),
 }));
 jest.mock('../../src/storage/secrets', () => ({
-  getKimaiApiToken: jest.fn(),
-  setKimaiApiToken: jest.fn(),
   setKimaiWebhookSecret: jest.fn(),
 }));
-jest.mock('../../src/storage/users', () => ({ saveUserMapping: jest.fn() }));
 jest.mock('../../src/kimai/client', () => ({ HttpKimaiClient: jest.fn() }));
 
 import { handler } from '../../src/resolvers/configuration';
@@ -50,7 +47,6 @@ describe('configuration resolver', () => {
   it('clears stored defaults when the payload explicitly supplies null', async () => {
     mockGetKimaiConfig.mockResolvedValue({
       url: 'https://kimai.example.test',
-      hasToken: true,
       defaultProjectId: 1,
       defaultActivityId: 2,
     });

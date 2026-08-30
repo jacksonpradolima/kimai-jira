@@ -2,11 +2,8 @@ import * as crypto from 'crypto';
 import { webTrigger } from '@forge/api';
 import Resolver from '@forge/resolver';
 import { getKimaiConfig, getSyncSettings, setKimaiConfig, setSyncSettings } from '../storage/config';
-import { getKimaiApiToken, setKimaiApiToken, setKimaiWebhookSecret } from '../storage/secrets';
-import { saveUserMapping } from '../storage/users';
-import { HttpKimaiClient } from '../kimai/client';
-import { toSafeUserMessage } from '../shared/errors';
-import { KimaiConfig, SyncSettings, UserMapping } from '../shared/types';
+import { setKimaiWebhookSecret } from '../storage/secrets';
+import { KimaiConfig, SyncSettings } from '../shared/types';
 
 const resolver = new Resolver();
 
@@ -26,7 +23,6 @@ resolver.define('getConfiguration', async () => {
 resolver.define('saveConnectionSettings', async (request) => {
   const payload = request.payload as {
     url?: string;
-    apiToken?: string;
     defaultProjectId?: number | string | null;
     defaultActivityId?: number | string | null;
   };
@@ -38,35 +34,12 @@ resolver.define('saveConnectionSettings', async (request) => {
   }
   const config: KimaiConfig = {
     url,
-    hasToken: Boolean(payload.apiToken) || Boolean(existing?.hasToken),
     defaultProjectId: resolveDefaultId(payload, 'defaultProjectId', existing?.defaultProjectId),
     defaultActivityId: resolveDefaultId(payload, 'defaultActivityId', existing?.defaultActivityId),
   };
-
-  if (payload.apiToken) {
-    await setKimaiApiToken(payload.apiToken);
-  }
   await setKimaiConfig(config);
 
   return { ok: true, config };
-});
-
-resolver.define('saveUserMapping', async (request) => {
-  const payload = request.payload as UserMapping;
-  const kimaiUserId = coerceId(payload.kimaiUserId);
-
-  if (!payload.jiraAccountId || kimaiUserId === undefined) {
-    return { ok: false, error: 'Jira account ID and Kimai user ID are required.' };
-  }
-
-  const mapping: UserMapping = {
-    jiraAccountId: payload.jiraAccountId,
-    kimaiUserId,
-    enabled: payload.enabled ?? true,
-  };
-
-  await saveUserMapping(mapping);
-  return { ok: true, mapping };
 });
 
 resolver.define('saveSyncSettings', async (request) => {
@@ -79,23 +52,6 @@ resolver.define('rotateWebhookSecret', async () => {
   const secret = generateSecret();
   await setKimaiWebhookSecret(secret);
   return { ok: true, secret };
-});
-
-resolver.define('testConnection', async () => {
-  const config = await getKimaiConfig();
-  const apiToken = await getKimaiApiToken();
-
-  if (!config || !apiToken) {
-    return { ok: false, error: 'Kimai connection is not configured yet.' };
-  }
-
-  try {
-    const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
-    const user = await client.getCurrentUser();
-    return { ok: true, user };
-  } catch (error) {
-    return { ok: false, error: toSafeUserMessage(error) };
-  }
 });
 
 function generateSecret(): string {

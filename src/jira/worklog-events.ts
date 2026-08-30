@@ -1,7 +1,7 @@
 import { ForgeJiraClient } from './client';
 import { HttpKimaiClient } from '../kimai/client';
 import { getKimaiConfig } from '../storage/config';
-import { getKimaiApiToken } from '../storage/secrets';
+import { getPersonalKimaiApiToken } from '../storage/secrets';
 import { getUserMapping } from '../storage/users';
 import { syncJiraWorklogToKimai } from '../sync/jira-to-kimai';
 import { getMappingByJiraWorklogId } from '../sync/mapping';
@@ -40,11 +40,11 @@ export async function handler(event: JiraWorklogEvent): Promise<void> {
 
   const jiraIssueKey = event.issue?.key ?? (await new ForgeJiraClient().getIssueKey(event.worklog.issueId));
   const authorAccountId = event.worklog.author?.accountId ?? event.worklog.authorAccountId;
-  const [config, apiToken, existingMapping, userMapping] = await Promise.all([
+  const [config, existingMapping, userMapping, apiToken] = await Promise.all([
     getKimaiConfig(),
-    getKimaiApiToken(),
     getMappingByJiraWorklogId(event.worklog.id),
     authorAccountId ? getUserMapping(authorAccountId) : Promise.resolve(undefined),
+    authorAccountId ? getPersonalKimaiApiToken(authorAccountId) : Promise.resolve(undefined),
   ]);
 
   if (!config || !apiToken) {

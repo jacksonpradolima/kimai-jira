@@ -13,8 +13,8 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
 };
 
 /**
- * Public (non-secret) Kimai connection configuration. The API token itself
- * is never stored here; see `storage/secrets.ts`.
+ * Public (non-secret) Kimai connection configuration. Each Jira user stores
+ * their own Kimai API token in the Forge Secret Store; see `storage/secrets.ts`.
  */
 export async function getKimaiConfig(): Promise<KimaiConfig | undefined> {
   return kvs.get<KimaiConfig>(CONFIG_KEY);

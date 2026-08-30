@@ -26,8 +26,9 @@ npx forge install --demo-site
 
 - **Issue view**: a `Kimai` panel is added to the right-hand sidebar (`jira:issueContext`) with
   Timer and Manual tabs.
-- **Jira administration**: a `Kimai Integration` admin page (`jira:adminPage`) for connection and
-  synchronization settings.
+- **Jira administration**: a `Kimai Integration` admin page (`jira:adminPage`) for the shared
+  Kimai endpoint, defaults, and webhook settings. Users manage their own Kimai API token from the
+  issue panel.
 
 ## Worklog events
 

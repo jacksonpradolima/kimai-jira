@@ -34,9 +34,12 @@ npx forge install --site your-site.atlassian.net --product jira
 Once installed, open **Jira administration → Apps → Kimai Integration** and provide:
 
 - the Kimai base URL;
-- a Kimai API token (stored using the Forge Secret Store, never written to Git);
 - optional default project/activity IDs used by Jira → Kimai syncs;
-- Jira account ID → Kimai user ID mappings for users whose Jira worklogs should sync into Kimai.
+
+Then each person using the integration opens a Jira issue, selects **Manage Kimai connection**, and
+adds their own Kimai API token. The app validates it with Kimai and automatically identifies the
+matching Kimai user. Tokens are encrypted in Forge Secret Store, never written to Git, and are not
+visible to administrators or other users.
 
 The current UI does not yet expose every documented toggle; see [Configuration](configuration.md)
 for the supported settings today.

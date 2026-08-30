@@ -4,15 +4,21 @@ const mockResolver = {
   getDefinitions: jest.fn(() => mockDefinitions),
 };
 const mockGetKimaiConfig = jest.fn();
-const mockGetKimaiApiToken = jest.fn();
+const mockGetPersonalKimaiApiToken = jest.fn();
+const mockSetPersonalKimaiApiToken = jest.fn();
+const mockClearPersonalKimaiApiToken = jest.fn();
 const mockGetUserMapping = jest.fn();
+const mockSaveUserMapping = jest.fn();
+const mockDeleteUserMapping = jest.fn();
 const mockGetActiveTimesheets = jest.fn();
+const mockGetCurrentUser = jest.fn();
 const mockGetTimesheet = jest.fn();
 const mockGetCustomers = jest.fn();
 const mockGetProjects = jest.fn();
 const mockGetActivities = jest.fn();
 const mockCreateProject = jest.fn();
 const mockCreateActivity = jest.fn();
+const mockCreateTimesheet = jest.fn();
 const mockStartTimer = jest.fn();
 const mockStopTimer = jest.fn();
 const mockClaimTimerStart = jest.fn();
@@ -33,8 +39,16 @@ jest.mock('@forge/resolver', () => ({
   default: jest.fn(() => mockResolver),
 }));
 jest.mock('../../src/storage/config', () => ({ getKimaiConfig: mockGetKimaiConfig }));
-jest.mock('../../src/storage/secrets', () => ({ getKimaiApiToken: mockGetKimaiApiToken }));
-jest.mock('../../src/storage/users', () => ({ getUserMapping: mockGetUserMapping }));
+jest.mock('../../src/storage/secrets', () => ({
+  getPersonalKimaiApiToken: mockGetPersonalKimaiApiToken,
+  setPersonalKimaiApiToken: mockSetPersonalKimaiApiToken,
+  clearPersonalKimaiApiToken: mockClearPersonalKimaiApiToken,
+}));
+jest.mock('../../src/storage/users', () => ({
+  getUserMapping: mockGetUserMapping,
+  saveUserMapping: mockSaveUserMapping,
+  deleteUserMapping: mockDeleteUserMapping,
+}));
 jest.mock('../../src/storage/timers', () => ({
   claimTimerStart: mockClaimTimerStart,
   releaseTimerStart: mockReleaseTimerStart,
@@ -48,12 +62,14 @@ jest.mock('../../src/storage/issue-targets', () => ({
 jest.mock('../../src/kimai/client', () => ({
   HttpKimaiClient: jest.fn(() => ({
     getActiveTimesheets: mockGetActiveTimesheets,
+    getCurrentUser: mockGetCurrentUser,
     getTimesheet: mockGetTimesheet,
     getCustomers: mockGetCustomers,
     getProjects: mockGetProjects,
     getActivities: mockGetActivities,
     createProject: mockCreateProject,
     createActivity: mockCreateActivity,
+    createTimesheet: mockCreateTimesheet,
     startTimer: mockStartTimer,
     stopTimer: mockStopTimer,
   })),
@@ -69,11 +85,11 @@ describe('issue context resolver', () => {
     jest.clearAllMocks();
     mockGetKimaiConfig.mockResolvedValue({
       url: 'https://kimai.example.test',
-      hasToken: true,
       defaultProjectId: 1,
       defaultActivityId: 2,
     });
-    mockGetKimaiApiToken.mockResolvedValue('token');
+    mockGetPersonalKimaiApiToken.mockResolvedValue('token');
+    mockGetCurrentUser.mockResolvedValue({ id: 42, username: 'kimai-user' });
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, enabled: true });
     mockGetActiveTimesheets.mockResolvedValue([]);
     mockGetTimesheet.mockResolvedValue({ id: 8291, user: 42 });
@@ -82,6 +98,7 @@ describe('issue context resolver', () => {
     mockGetActivities.mockResolvedValue([{ id: 20, name: '[BA-3] Improve billing', project: 10 }]);
     mockCreateProject.mockResolvedValue({ id: 10, name: 'BA - Billing', customer: 1 });
     mockCreateActivity.mockResolvedValue({ id: 20, name: '[BA-3] Improve billing', project: 10 });
+    mockCreateTimesheet.mockResolvedValue({ id: 8300 });
     mockStartTimer.mockResolvedValue({ id: 8291 });
     mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
     mockClaimTimerStart.mockResolvedValue(true);
@@ -260,5 +277,68 @@ describe('issue context resolver', () => {
 
     expect(mockStopTimer).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: false, error: 'You can only stop your own Kimai timer.' });
+  });
+
+  it('validates a personal token and derives the Kimai user mapping from it', async () => {
+    const savePersonalKimaiToken = (handler as unknown as typeof mockDefinitions).savePersonalKimaiToken;
+    const result = await savePersonalKimaiToken({
+      context: { accountId: '712020:abc123' },
+      payload: { apiToken: 'personal-token' },
+    });
+
+    expect(mockSetPersonalKimaiApiToken).toHaveBeenCalledWith('712020:abc123', 'personal-token');
+    expect(mockSaveUserMapping).toHaveBeenCalledWith({
+      jiraAccountId: '712020:abc123', kimaiUserId: 42, kimaiUsername: 'kimai-user', enabled: true,
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: true, user: { id: 42, username: 'kimai-user' } }));
+  });
+
+  it('clears only the invoking user\'s personal token and mapping', async () => {
+    const clearPersonalKimaiToken = (handler as unknown as typeof mockDefinitions).clearPersonalKimaiToken;
+    await clearPersonalKimaiToken({ context: { accountId: '712020:abc123' }, payload: {} });
+
+    expect(mockClearPersonalKimaiApiToken).toHaveBeenCalledWith('712020:abc123');
+    expect(mockDeleteUserMapping).toHaveBeenCalledWith('712020:abc123');
+  });
+
+  it('does not store an invalid personal token', async () => {
+    mockGetCurrentUser.mockRejectedValue(new Error('Unauthorized'));
+    const savePersonalKimaiToken = (handler as unknown as typeof mockDefinitions).savePersonalKimaiToken;
+    const result = await savePersonalKimaiToken({
+      context: { accountId: '712020:abc123' },
+      payload: { apiToken: 'invalid-token' },
+    });
+
+    expect(result).toEqual(expect.objectContaining({ ok: false }));
+    expect(mockSetPersonalKimaiApiToken).not.toHaveBeenCalled();
+    expect(mockSaveUserMapping).not.toHaveBeenCalled();
+  });
+
+  it('creates a billable manual entry with the issue-derived target and personal Kimai user', async () => {
+    const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
+    const result = await createManualTimeEntry({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {
+        customerId: 1,
+        description: 'Investigate billing synchronization',
+        date: '2026-08-30',
+        startTime: '09:00',
+        duration: '01:30:00',
+        tags: ['Routine', 'Billing', 'Routine'],
+        billable: true,
+      },
+    });
+
+    expect(mockCreateTimesheet).toHaveBeenCalledWith({
+      begin: '2026-08-30T09:00:00',
+      end: '2026-08-30T10:30:00',
+      project: 10,
+      activity: 20,
+      user: 42,
+      description: 'Investigate billing synchronization',
+      tags: ['Routine', 'Billing'],
+      billable: true,
+    });
+    expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
   });
 });

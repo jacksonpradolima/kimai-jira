@@ -2,8 +2,12 @@ import Resolver from '@forge/resolver';
 import { HttpKimaiClient, KimaiClient } from '../kimai/client';
 import { ForgeJiraClient, JiraIssueDetails } from '../jira/client';
 import { getKimaiConfig } from '../storage/config';
-import { getKimaiApiToken } from '../storage/secrets';
-import { getUserMapping } from '../storage/users';
+import {
+  clearPersonalKimaiApiToken,
+  getPersonalKimaiApiToken,
+  setPersonalKimaiApiToken,
+} from '../storage/secrets';
+import { deleteUserMapping, getUserMapping, saveUserMapping } from '../storage/users';
 import { claimTimerStart, releaseTimerStart } from '../storage/timers';
 import {
   getJiraIssueKimaiTarget,
@@ -25,6 +29,74 @@ function getCustomerId(payload: unknown): number | undefined {
   const customerId = (payload as { customerId?: unknown } | undefined)?.customerId;
   const parsed = typeof customerId === 'string' ? Number(customerId) : customerId;
   return typeof parsed === 'number' && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+interface ManualTimeEntryPayload {
+  customerId?: unknown;
+  description?: unknown;
+  date?: unknown;
+  startTime?: unknown;
+  endTime?: unknown;
+  duration?: unknown;
+  tags?: unknown;
+  billable?: unknown;
+}
+
+function timeValue(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+    throw new AppError('INVALID_MANUAL_TIME', `${label} must use HH:MM.`);
+  }
+  const [hours, minutes] = value.split(':').map(Number);
+  if (hours > 23 || minutes > 59) {
+    throw new AppError('INVALID_MANUAL_TIME', `${label} must use HH:MM.`);
+  }
+  return value;
+}
+
+function dateValue(value: unknown): string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new AppError('INVALID_MANUAL_DATE', 'Date must use YYYY-MM-DD.');
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new AppError('INVALID_MANUAL_DATE', 'Date must use YYYY-MM-DD.');
+  }
+  return value;
+}
+
+function durationSeconds(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (typeof value !== 'string' || !/^\d{1,3}:\d{2}(:\d{2})?$/.test(value)) {
+    throw new AppError('INVALID_MANUAL_DURATION', 'Duration must use HH:MM or HH:MM:SS.');
+  }
+  const parts = value.split(':').map(Number);
+  const [hours, minutes, seconds = 0] = parts;
+  if (minutes > 59 || seconds > 59 || hours === 0 && minutes === 0 && seconds === 0) {
+    throw new AppError('INVALID_MANUAL_DURATION', 'Duration must be greater than zero.');
+  }
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function timestamp(date: string, time: string): string {
+  return `${date}T${time}:00`;
+}
+
+function addDuration(begin: string, seconds: number): string {
+  const beginAsUtc = new Date(`${begin}Z`);
+  const end = new Date(beginAsUtc.getTime() + seconds * 1000).toISOString();
+  return end.slice(0, 19);
+}
+
+function manualTags(value: unknown): string[] | undefined {
+  const rawTags = Array.isArray(value)
+    ? value.filter((tag): tag is string => typeof tag === 'string')
+    : typeof value === 'string' ? value.split(',') : [];
+  const tags = rawTags
+    .map((tag) => tag.trim())
+    .filter((tag, index, all) => Boolean(tag) && all.findIndex((candidate) => candidate.toLocaleLowerCase() === tag.toLocaleLowerCase()) === index);
+  return tags.length > 0 ? tags : undefined;
 }
 
 function timerProjectName(issue: JiraIssueDetails): string {
@@ -109,12 +181,17 @@ async function resolveTimerTarget(
  * to render the `jira:issueContext` panel.
  */
 resolver.define('getIssueTimerState', async (request) => {
-  const config = await getKimaiConfig();
-  const apiToken = await getKimaiApiToken();
   const accountId = request.context.accountId as string | undefined;
-  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
-  if (!config || !apiToken) {
+  const [config, apiToken, userMapping] = await Promise.all([
+    getKimaiConfig(),
+    accountId ? getPersonalKimaiApiToken(accountId) : Promise.resolve(undefined),
+    accountId ? getUserMapping(accountId) : Promise.resolve(undefined),
+  ]);
+  if (!config) {
     return { configured: false };
+  }
+  if (!apiToken) {
+    return { configured: true, personalTokenConfigured: false };
   }
 
   const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
@@ -134,7 +211,7 @@ resolver.define('getIssueTimerState', async (request) => {
       }
     | undefined;
   if (!userMapping?.enabled) {
-    timerSetupError = 'No enabled Kimai user mapping exists for this Jira user.';
+    timerSetupError = 'Your Kimai API token needs to be connected again.';
   } else if (!issueKey) {
     timerSetupError = 'Open a Jira issue before starting a timer.';
   } else {
@@ -178,6 +255,8 @@ resolver.define('getIssueTimerState', async (request) => {
 
   return {
     configured: true,
+    personalTokenConfigured: true,
+    connectedKimaiUser: userMapping?.kimaiUsername,
     kimaiUrl: config.url,
     customers,
     defaultKimaiCustomerId,
@@ -189,15 +268,20 @@ resolver.define('getIssueTimerState', async (request) => {
 });
 
 resolver.define('startTimer', async (request) => {
-  const config = await getKimaiConfig();
-  const apiToken = await getKimaiApiToken();
   const accountId = request.context.accountId as string | undefined;
-  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
-  if (!config || !apiToken) {
+  const [config, apiToken, userMapping] = await Promise.all([
+    getKimaiConfig(),
+    accountId ? getPersonalKimaiApiToken(accountId) : Promise.resolve(undefined),
+    accountId ? getUserMapping(accountId) : Promise.resolve(undefined),
+  ]);
+  if (!config) {
     return { ok: false, error: 'Kimai is not configured yet.' };
   }
+  if (!apiToken) {
+    return { ok: false, error: 'Add your personal Kimai API token before starting a timer.' };
+  }
   if (!userMapping?.enabled) {
-    return { ok: false, error: 'No enabled Kimai user mapping exists for this Jira user.' };
+    return { ok: false, error: 'Your Kimai API token needs to be connected again.' };
   }
   const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
   if (!issueKey) {
@@ -241,15 +325,20 @@ resolver.define('startTimer', async (request) => {
 });
 
 resolver.define('stopTimer', async (request) => {
-  const config = await getKimaiConfig();
-  const apiToken = await getKimaiApiToken();
   const accountId = request.context.accountId as string | undefined;
-  const userMapping = accountId ? await getUserMapping(accountId) : undefined;
-  if (!config || !apiToken) {
+  const [config, apiToken, userMapping] = await Promise.all([
+    getKimaiConfig(),
+    accountId ? getPersonalKimaiApiToken(accountId) : Promise.resolve(undefined),
+    accountId ? getUserMapping(accountId) : Promise.resolve(undefined),
+  ]);
+  if (!config) {
     return { ok: false, error: 'Kimai is not configured yet.' };
   }
+  if (!apiToken) {
+    return { ok: false, error: 'Add your personal Kimai API token before stopping a timer.' };
+  }
   if (!userMapping?.enabled) {
-    return { ok: false, error: 'No enabled Kimai user mapping exists for this Jira user.' };
+    return { ok: false, error: 'Your Kimai API token needs to be connected again.' };
   }
 
   try {
@@ -264,6 +353,104 @@ resolver.define('stopTimer', async (request) => {
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   }
+});
+
+resolver.define('createManualTimeEntry', async (request) => {
+  const accountId = request.context.accountId as string | undefined;
+  const payload = request.payload as ManualTimeEntryPayload;
+  const [config, apiToken, userMapping] = await Promise.all([
+    getKimaiConfig(),
+    accountId ? getPersonalKimaiApiToken(accountId) : Promise.resolve(undefined),
+    accountId ? getUserMapping(accountId) : Promise.resolve(undefined),
+  ]);
+  if (!config) {
+    return { ok: false, error: 'Kimai is not configured yet.' };
+  }
+  if (!apiToken || !userMapping?.enabled) {
+    return { ok: false, error: 'Add your personal Kimai API token before adding time.' };
+  }
+
+  try {
+    const issueKey = getTrustedIssueKey(request.context as Record<string, unknown>);
+    if (!issueKey) {
+      throw new AppError('JIRA_ISSUE_REQUIRED', 'Open a Jira issue before adding time.');
+    }
+    const date = dateValue(payload.date);
+    const startTime = timeValue(payload.startTime, 'Start time');
+    const duration = durationSeconds(payload.duration);
+    const begin = timestamp(date, startTime);
+    const end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time')) : undefined;
+    if (!end && duration === undefined) {
+      throw new AppError('MANUAL_DURATION_REQUIRED', 'Enter a duration or an end time.');
+    }
+    if (end && end <= begin) {
+      throw new AppError('INVALID_MANUAL_PERIOD', 'End time must be after start time.');
+    }
+
+    const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
+    const issue = await new ForgeJiraClient().getIssueDetails(issueKey);
+    const customerId = await resolveKimaiCustomerId(client, issue, getCustomerId(payload));
+    const target = await resolveTimerTarget(client, issue, customerId);
+    const timesheet = await client.createTimesheet({
+      begin,
+      end: end ?? addDuration(begin, duration as number),
+      project: target.projectId,
+      activity: target.activityId,
+      user: userMapping.kimaiUserId,
+      description: typeof payload.description === 'string' ? payload.description.trim() || undefined : undefined,
+      tags: manualTags(payload.tags),
+      billable: payload.billable === true,
+    });
+    return { ok: true, timesheet };
+  } catch (error) {
+    return { ok: false, error: toSafeUserMessage(error) };
+  }
+});
+
+/**
+ * Saves a token only for the authenticated Jira user. The token is verified
+ * against Kimai before it reaches Forge Secret Store, and `/api/users/me`
+ * supplies the Kimai identity used by timer and worklog synchronization.
+ */
+resolver.define('savePersonalKimaiToken', async (request) => {
+  const accountId = request.context.accountId as string | undefined;
+  const apiToken = (request.payload as { apiToken?: unknown }).apiToken;
+  if (!accountId) {
+    return { ok: false, error: 'Unable to identify the current Jira user.' };
+  }
+  if (typeof apiToken !== 'string' || !apiToken.trim()) {
+    return { ok: false, error: 'Enter your Kimai API token.' };
+  }
+
+  const config = await getKimaiConfig();
+  if (!config) {
+    return { ok: false, error: 'Kimai is not configured yet. Ask a site administrator to set it up.' };
+  }
+
+  try {
+    const user = await new HttpKimaiClient({ baseUrl: config.url, apiToken: apiToken.trim() }).getCurrentUser();
+    await Promise.all([
+      setPersonalKimaiApiToken(accountId, apiToken.trim()),
+      saveUserMapping({
+        jiraAccountId: accountId,
+        kimaiUserId: user.id,
+        kimaiUsername: user.username,
+        enabled: true,
+      }),
+    ]);
+    return { ok: true, user: { id: user.id, username: user.username, email: user.email } };
+  } catch (error) {
+    return { ok: false, error: toSafeUserMessage(error) };
+  }
+});
+
+resolver.define('clearPersonalKimaiToken', async (request) => {
+  const accountId = request.context.accountId as string | undefined;
+  if (!accountId) {
+    return { ok: false, error: 'Unable to identify the current Jira user.' };
+  }
+  await Promise.all([clearPersonalKimaiApiToken(accountId), deleteUserMapping(accountId)]);
+  return { ok: true };
 });
 
 export const handler = resolver.getDefinitions();
