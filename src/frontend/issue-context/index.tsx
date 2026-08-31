@@ -67,7 +67,7 @@ const App = () => {
   const [manualDate, setManualDate] = useState(localDateInputValue);
   const [manualStartTime, setManualStartTime] = useState(() => localTimeInputValue(new Date()));
   const [manualEndTime, setManualEndTime] = useState(() => localTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)));
-  const [manualBillable, setManualBillable] = useState(false);
+  const [manualBillable, setManualBillable] = useState(true);
   const [isManualEntryPending, setIsManualEntryPending] = useState(false);
   const [manualEntryMessage, setManualEntryMessage] = useState<string | undefined>(undefined);
   const [now, setNow] = useState(() => Date.now());

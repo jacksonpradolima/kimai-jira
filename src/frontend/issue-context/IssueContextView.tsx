@@ -192,8 +192,22 @@ export const IssueContextView = ({
             ) : state.timerSetupError ? (
               <><Text>{state.timerSetupError}</Text>{connection}</>
             ) : (
-              <Box xcss={xcss({ width: '100%' })}>
-                <Stack alignInline="stretch" space="space.100">
+              <Stack alignInline="stretch" grow="fill" space="space.100">
+                <FormSection>
+                  <Label labelFor="timer-elapsed">Elapsed time</Label>
+                  <Textfield id="timer-elapsed" isDisabled value={elapsedTime} width="100%" />
+                </FormSection>
+                {state.runningTimesheet ? (
+                  <LoadingButton appearance="primary" isDisabled={isTimerActionPending} isLoading={isTimerActionPending} onClick={onStop} shouldFitContainer>Stop</LoadingButton>
+                ) : (
+                  <LoadingButton
+                    appearance="primary"
+                    isDisabled={isTimerActionPending || customerOptions.length === 0 || !selectedKimaiCustomerId}
+                    isLoading={isTimerActionPending}
+                    onClick={onStart}
+                    shouldFitContainer
+                  >Start</LoadingButton>
+                )}
                 {customerOptions.length === 0 ? (
                   <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
                 ) : (
@@ -221,28 +235,12 @@ export const IssueContextView = ({
                   <Label labelFor="timer-issue">Issue (Kimai activity)</Label>
                   <Textfield id="timer-issue" isDisabled value={state.target?.activityName ?? ''} width="100%" />
                 </FormSection>
-                <FormSection>
-                  <Label labelFor="timer-elapsed">Elapsed time</Label>
-                  <Textfield id="timer-elapsed" isDisabled value={elapsedTime} width="100%" />
-                </FormSection>
-                {state.runningTimesheet ? (
-                  <LoadingButton appearance="primary" isDisabled={isTimerActionPending} isLoading={isTimerActionPending} onClick={onStop} shouldFitContainer>Stop</LoadingButton>
-                ) : (
-                  <LoadingButton
-                    appearance="primary"
-                    isDisabled={isTimerActionPending || customerOptions.length === 0 || !selectedKimaiCustomerId}
-                    isLoading={isTimerActionPending}
-                    onClick={onStart}
-                    shouldFitContainer
-                  >Start</LoadingButton>
-                )}
                 <Box xcss={xcss({
                   borderBlockStartColor: 'color.border',
                   borderBlockStartWidth: 'border.width',
                   paddingBlockStart: 'space.150',
                 })}>{connection}</Box>
-                </Stack>
-              </Box>
+              </Stack>
             )}
             {error && <Text>{error}</Text>}
           </Stack>
@@ -347,6 +345,7 @@ function ManualTimeEntry({
           >Add time</LoadingButton>
         </Box>
       </Tooltip>
+      {message && <SectionMessage appearance={message === 'Time added' ? 'success' : 'error'}>{message}</SectionMessage>}
       <Box xcss={xcss({
         borderBlockStartColor: 'color.border',
         borderBlockStartWidth: 'border.width',
@@ -390,7 +389,6 @@ function ManualTimeEntry({
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>
-      {message && <SectionMessage appearance={message === 'Time added' ? 'success' : 'error'}>{message}</SectionMessage>}
     </Stack>
   );
 }
@@ -410,6 +408,7 @@ function PersonalKimaiConnection({
         <Label labelFor="personal-kimai-token">Kimai API token</Label>
         <Textfield
           id="personal-kimai-token"
+          placeholder={hasPersonalToken ? '••••••••••••' : 'Enter your Kimai API token'}
           type="password"
           value={token}
           onChange={(event: { target: { value?: unknown } }) => onTokenChange(String(event.target.value ?? ''))}
