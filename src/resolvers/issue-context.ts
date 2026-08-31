@@ -97,12 +97,9 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   ) {
     throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
   }
-  const [year, month, day] = date.split('-').map(Number);
-  const [hours, minutes] = time.split(':').map(Number);
-  // Date#getTimezoneOffset is UTC minus local time. Add it to turn the wall-clock
-  // date/time selected in the browser into the corresponding UTC instant.
-  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000;
-  return new Date(utcMillis).toISOString().slice(0, 19);
+  // Kimai expects an HTML5 local date-time. Converting the browser selection to
+  // UTC before sending it shifts manual entries by the user's timezone offset.
+  return `${date}T${time}:00`;
 }
 
 function addDuration(begin: string, seconds: number): string {
@@ -458,7 +455,7 @@ resolver.define('createManualTimeEntry', async (request) => {
       activity: target.activityId,
       user: userMapping!.kimaiUserId,
       description: manualDescriptionWithIssueMarker(issueKey, payload.description),
-      tags: manualTags(payload.tags),
+      tags: manualTags([...(manualTags(payload.tags) ?? []), issueKey]),
       billable: payload.billable === true,
     });
     return { ok: true, timesheet };

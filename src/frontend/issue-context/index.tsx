@@ -232,7 +232,7 @@ const App = () => {
       setManualDescription(defaultManualDescription(state));
       setManualTags([]);
       setManualTagInput('');
-      setManualEntryMessage(`Time entry ${result.timesheet?.id ?? ''} added to Kimai.`.trim());
+      setManualEntryMessage('Time added');
     } catch (manualError) {
       setManualEntryMessage(`Unable to add time to Kimai: ${String(manualError)}`);
     } finally {

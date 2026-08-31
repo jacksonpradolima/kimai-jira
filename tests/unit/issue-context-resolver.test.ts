@@ -349,13 +349,13 @@ describe('issue context resolver', () => {
       activity: 20,
       user: 42,
       description: '[BA-3] Investigate billing synchronization',
-      tags: ['Routine', 'Billing'],
+      tags: ['Routine', 'Billing', 'BA-3'],
       billable: true,
     });
     expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
   });
 
-  it('converts a local manual-entry time to UTC using Date#getTimezoneOffset semantics', async () => {
+  it('preserves the selected local time for Kimai manual entries', async () => {
     const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
 
     await createManualTimeEntry({
@@ -368,7 +368,7 @@ describe('issue context resolver', () => {
     });
 
     expect(mockCreateTimesheet).toHaveBeenCalledWith(expect.objectContaining({
-      begin: '2026-08-30T13:00:00', end: '2026-08-30T14:00:00',
+      begin: '2026-08-30T09:00:00', end: '2026-08-30T10:00:00',
     }));
   });
 });

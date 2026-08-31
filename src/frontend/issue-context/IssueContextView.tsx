@@ -142,7 +142,6 @@ export const IssueContextView = ({
   const selectedCustomer = customerOptions.find((option) => option.value === selectedKimaiCustomerId) ?? null;
   const connection = (
     <PersonalKimaiConnection
-      connectedUser={state.connectedKimaiUser}
       hasPersonalToken={Boolean(state.personalTokenConfigured)}
       isManagingConnection={isManagingConnection}
       isPending={isPersonalConnectionPending}
@@ -190,7 +189,9 @@ export const IssueContextView = ({
         </TabPanel>
         <TabPanel>
           <Stack space="space.100">
-            {!state.personalTokenConfigured ? (
+            {isManagingConnection ? (
+              connection
+            ) : !state.personalTokenConfigured ? (
               <PersonalKimaiConnection
                 hasPersonalToken={false}
                 isManagingConnection={isManagingConnection}
@@ -267,7 +268,6 @@ export const IssueContextView = ({
 };
 
 interface PersonalKimaiConnectionProps {
-  connectedUser?: string;
   hasPersonalToken: boolean;
   isManagingConnection: boolean;
   isPending: boolean;
@@ -389,11 +389,11 @@ function ManualTimeEntry({
           </FormSection>
           <FormSection>
             <Label labelFor="manual-project">Project</Label>
-            <Textfield id="manual-project" isReadOnly value={state.target?.projectName ?? ''} />
+            <Textfield id="manual-project" isDisabled value={state.target?.projectName ?? ''} />
           </FormSection>
           <FormSection>
             <Label labelFor="manual-issue">Issue (Kimai activity)</Label>
-            <Textfield id="manual-issue" isReadOnly value={state.target?.activityName ?? ''} />
+            <Textfield id="manual-issue" isDisabled value={state.target?.activityName ?? ''} />
           </FormSection>
           <FormSection>
             <Label labelFor="manual-billable">Billable</Label>
@@ -424,16 +424,16 @@ function ManualTimeEntry({
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>
-      {message && <SectionMessage appearance={message.startsWith('Time entry') ? 'success' : 'error'} title={message.startsWith('Time entry') ? 'Time added' : 'Unable to add time'}>{message}</SectionMessage>}
+      {message && <SectionMessage appearance={message === 'Time added' ? 'success' : 'error'}>{message}</SectionMessage>}
     </Stack>
   );
 }
 
 function PersonalKimaiConnection({
-  connectedUser, hasPersonalToken, isManagingConnection, isPending, message, token, onManage, onBack, onTokenChange, onSave, onReset,
+  hasPersonalToken, isManagingConnection, isPending, message, token, onManage, onBack, onTokenChange, onSave, onReset,
 }: PersonalKimaiConnectionProps) {
   if (!isManagingConnection) {
-    return <><Text>{connectedUser ? `Connected to Kimai as ${connectedUser}.` : message ?? ''}</Text><Button onClick={onManage}>Manage Kimai connection</Button></>;
+    return <><Button onClick={onManage}>Manage Kimai connection</Button>{message && <SectionMessage appearance="error">{message}</SectionMessage>}</>;
   }
   return (
     <Stack space="space.100">
@@ -450,8 +450,8 @@ function PersonalKimaiConnection({
       <Inline space="space.100">
         <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back to time entry</Button>
         <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save personal API token</LoadingButton>
+        {hasPersonalToken && <Button appearance="subtle" isDisabled={isPending} onClick={onReset}>Reset API key</Button>}
       </Inline>
-      {hasPersonalToken && <Button isDisabled={isPending} onClick={onReset}>Reset API key</Button>}
       {message && <SectionMessage appearance={message.startsWith('Connected') ? 'success' : 'error'} title={message.startsWith('Connected') ? 'Kimai connected' : 'Kimai connection error'}>{message}</SectionMessage>}
     </Stack>
   );
