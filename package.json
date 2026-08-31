@@ -1,6 +1,6 @@
 {
   "name": "kimai-for-jira",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Open-source Kimai integration for Jira Cloud, built with Atlassian Forge",
   "license": "MIT",
   "private": true,

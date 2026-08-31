@@ -1,3 +1,19 @@
+# [1.1.0](https://github.com/jacksonpradolima/kimai-jira/compare/v1.0.0...v1.1.0) (2026-08-31)
+
+
+### Bug Fixes
+
+* **issue-panel:** hide timer tab ([afd6067](https://github.com/jacksonpradolima/kimai-jira/commit/afd60676e41c65f7bb2b2d2edc9ac731e2f829cd))
+* **timer:** create Jira worklogs after stop ([3360f4c](https://github.com/jacksonpradolima/kimai-jira/commit/3360f4cc30b10f1d191116aa9a27752f7ebbd3a1))
+* **timer:** tolerate partial stop responses ([93f201a](https://github.com/jacksonpradolima/kimai-jira/commit/93f201aaa9def67076e1b743d88fde66779beb31))
+
+
+### Features
+
+* link Manual entries to Jira worklogs ([36a5969](https://github.com/jacksonpradolima/kimai-jira/commit/36a59692042f810149fe6785256256c54d283dd3))
+* **manual:** create linked Jira worklogs ([38dc281](https://github.com/jacksonpradolima/kimai-jira/commit/38dc281dffa8a7af578755cf9e63eddcfd959fa8))
+* **worklogs:** link user-created entries to Jira ([529c98b](https://github.com/jacksonpradolima/kimai-jira/commit/529c98b8c770d844569592b430a769854f513985))
+
 # 1.0.0 (2026-08-31)
 
 
