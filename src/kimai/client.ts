@@ -61,6 +61,19 @@ export class HttpKimaiClient implements KimaiClient {
     return [scheme, this.apiToken].join(' ');
   }
 
+  private async safeErrorDetail(response: Response): Promise<string | undefined> {
+    try {
+      const body = await response.text();
+      const parsed = JSON.parse(body) as { message?: unknown; error?: unknown };
+      const message = typeof parsed.message === 'string' ? parsed.message : parsed.error;
+      if (typeof message !== 'string') return undefined;
+      const normalized = message.replace(/\s+/g, ' ').trim();
+      return normalized && normalized.length <= 240 ? normalized : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await this.fetchFn(`${this.baseUrl}${path}`, {
       ...init,
@@ -72,7 +85,11 @@ export class HttpKimaiClient implements KimaiClient {
     });
 
     if (!response.ok) {
-      throw new KimaiApiError(`Kimai API request to ${path} failed (HTTP ${response.status})`, response.status);
+      const detail = await this.safeErrorDetail(response);
+      throw new KimaiApiError(
+        `Kimai API request to ${path} failed (HTTP ${response.status})${detail ? `: ${detail}` : ''}`,
+        response.status,
+      );
     }
 
     if (response.status === 204) {

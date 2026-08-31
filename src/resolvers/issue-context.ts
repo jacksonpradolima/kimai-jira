@@ -97,12 +97,10 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   ) {
     throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
   }
-  const [year, month, day] = date.split('-').map(Number);
-  const [hours, minutes] = time.split(':').map(Number);
-  // Date#getTimezoneOffset is UTC minus local time. Add it to turn the wall-clock
-  // date/time selected in the browser into the corresponding UTC instant.
-  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000;
-  return new Date(utcMillis).toISOString().slice(0, 19);
+  // Kimai's API accepts an HTML5 local date-time without a timezone suffix.
+  // Sending a converted UTC value without `Z` makes Kimai interpret it as a
+  // second local time, which can move late-evening entries into the next day.
+  return `${date}T${time}:00`;
 }
 
 function addDuration(begin: string, seconds: number): string {

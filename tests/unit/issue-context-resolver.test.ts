@@ -355,7 +355,7 @@ describe('issue context resolver', () => {
     expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
   });
 
-  it('converts the selected local time to UTC for Kimai manual entries', async () => {
+  it('preserves the selected local time for Kimai manual entries', async () => {
     const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
 
     await createManualTimeEntry({
@@ -368,7 +368,7 @@ describe('issue context resolver', () => {
     });
 
     expect(mockCreateTimesheet).toHaveBeenCalledWith(expect.objectContaining({
-      begin: '2026-08-30T13:00:00', end: '2026-08-30T14:00:00',
+      begin: '2026-08-30T09:00:00', end: '2026-08-30T10:00:00',
     }));
   });
 
