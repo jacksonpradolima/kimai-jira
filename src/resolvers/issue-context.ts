@@ -18,6 +18,12 @@ import {
   saveJiraProjectCustomerMapping,
 } from '../storage/issue-targets';
 import { AppError, toSafeUserMessage } from '../shared/errors';
+import {
+  deletePendingJiraWorklogCreation,
+  recordMapping,
+  savePendingJiraWorklogCreation,
+} from '../sync/mapping';
+import { formatKimaiTimesheetCorrelation } from '../sync/correlation';
 
 const resolver = new Resolver();
 
@@ -100,6 +106,21 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   // Sending a converted UTC value without `Z` makes Kimai interpret it as a
   // second local time, which can move late-evening entries into the next day.
   return `${date}T${time}:00`;
+}
+
+function utcTimestamp(date: string, time: string, timezoneOffsetMinutes: unknown): string {
+  if (
+    typeof timezoneOffsetMinutes !== 'number'
+    || !Number.isInteger(timezoneOffsetMinutes)
+    || Math.abs(timezoneOffsetMinutes) > 14 * 60
+  ) {
+    throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
+  }
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000)
+    .toISOString()
+    .slice(0, 19);
 }
 
 function addDuration(begin: string, seconds: number): string {
@@ -437,20 +458,67 @@ resolver.define('createManualTimeEntry', async (request) => {
       throw new AppError('INVALID_MANUAL_PERIOD', 'End time must differ from start time.');
     }
 
+    const jiraBegin = utcTimestamp(date, startTime, timezoneOffsetMinutes);
+    let jiraEnd = payload.endTime
+      ? utcTimestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes)
+      : addDuration(jiraBegin, duration as number);
+    if (jiraEnd < jiraBegin) {
+      jiraEnd = addDuration(jiraEnd, 24 * 60 * 60);
+    }
+    const timeSpentSeconds = duration ?? Math.round(
+      (new Date(`${jiraEnd}Z`).getTime() - new Date(`${jiraBegin}Z`).getTime()) / 1000,
+    );
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
-    const issue = await new ForgeJiraClient().getIssueDetails(issueKey);
+    const jiraClient = new ForgeJiraClient();
+    const issue = await jiraClient.getIssueDetails(issueKey);
     const customerId = await resolveKimaiCustomerId(client, issue, getCustomerId(payload));
     const target = await resolveTimerTarget(client, issue, customerId);
+    const description = manualDescriptionWithIssueMarker(issueKey, payload.description);
     const timesheet = await client.createTimesheet({
       begin,
       end: end ?? addDuration(begin, duration as number),
       project: target.projectId,
       activity: target.activityId,
       user: userMapping!.kimaiUserId,
-      description: manualDescriptionWithIssueMarker(issueKey, payload.description),
+      description,
       billable: payload.billable === true,
     });
-    return { ok: true, timesheet };
+    let worklog;
+    try {
+      worklog = await jiraClient.createWorklog({
+        issueIdOrKey: issueKey,
+        started: jiraBegin,
+        timeSpentSeconds,
+        comment: `${formatKimaiTimesheetCorrelation(timesheet.id)} ${description}`,
+        authorAccountId: accountId,
+      });
+    } catch {
+      try {
+        await client.deleteTimesheet(timesheet.id);
+      } catch {
+        throw new AppError(
+          'JIRA_WORKLOG_CREATE_FAILED',
+          'Jira could not add the worklog. The Kimai entry was created; remove it manually before retrying.',
+        );
+      }
+      throw new AppError(
+        'JIRA_WORKLOG_CREATE_FAILED',
+        'Jira could not add the worklog. The Kimai entry was removed.',
+      );
+    }
+    const mapping = {
+      jiraIssueId: worklog.issueId,
+      jiraIssueKey: issueKey,
+      jiraWorklogId: worklog.id,
+      kimaiTimesheetId: timesheet.id,
+      kimaiUserId: userMapping!.kimaiUserId,
+      origin: 'jira' as const,
+      lastSyncedAt: new Date().toISOString(),
+    };
+    await savePendingJiraWorklogCreation(timesheet.id, mapping);
+    await recordMapping(mapping);
+    await deletePendingJiraWorklogCreation(timesheet.id);
+    return { ok: true, timesheet, worklog };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   }
