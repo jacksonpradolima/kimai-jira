@@ -85,6 +85,10 @@ const App = () => {
         setRunningTimesheet(timerState.runningTimesheet);
         setSelectedKimaiCustomerId(timerState.defaultKimaiCustomerId);
         setManualDescription(defaultManualDescription(timerState));
+        if (!timerState.personalTokenConfigured) {
+          setActiveTab('timer');
+          setIsManagingConnection(true);
+        }
       })
       .catch(() => setError('Unable to load the Kimai timer status.'));
   }, []);
@@ -170,6 +174,7 @@ const App = () => {
       setManualDescription(defaultManualDescription(nextState));
       setPersonalApiToken('');
       setIsManagingConnection(false);
+      setActiveTab('manual');
       setPersonalConnectionMessage(`Connected to Kimai as ${result.user?.username ?? 'your user'}.`);
     } catch (connectionError) {
       setPersonalConnectionMessage(`Unable to save your Kimai API token: ${String(connectionError)}`);
@@ -194,7 +199,8 @@ const App = () => {
       });
       setRunningTimesheet(undefined);
       setPersonalApiToken('');
-      setIsManagingConnection(false);
+      setIsManagingConnection(true);
+      setActiveTab('timer');
       setPersonalConnectionMessage('Your personal Kimai API token has been reset.');
     } catch (connectionError) {
       setPersonalConnectionMessage(`Unable to reset your Kimai API token: ${String(connectionError)}`);

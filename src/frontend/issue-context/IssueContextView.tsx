@@ -195,7 +195,7 @@ export const IssueContextView = ({
                 hasPersonalToken={false}
                 isManagingConnection={isManagingConnection}
                 isPending={isPersonalConnectionPending}
-                message={personalConnectionMessage ?? 'Add your personal Kimai API token to start tracking time.'}
+                message={personalConnectionMessage}
                 onManage={onManageConnection}
                 onBack={onConnectionBack}
                 onReset={onResetPersonalToken}
@@ -350,7 +350,12 @@ function ManualTimeEntry({
         <Label labelFor="manual-total-duration">Total duration</Label>
         <Textfield id="manual-total-duration" isDisabled value={totalDuration} />
       </FormSection>
-      {blockingReason && <Text>Add time is unavailable: {blockingReason}</Text>}
+      {!state.personalTokenConfigured && (
+        <SectionMessage appearance="warning" title="Connect Kimai before adding time">
+          Add your personal Kimai API token to enable manual time entries.
+          <Button appearance="subtle" onClick={onManageConnection}>Connect Kimai</Button>
+        </SectionMessage>
+      )}
       <Tooltip content={blockingReason ?? 'Add this time entry to Kimai.'}>
         <Box>
           <LoadingButton
@@ -432,7 +437,6 @@ function PersonalKimaiConnection({
   }
   return (
     <Stack space="space.100">
-      <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back to time entry</Button>
       <Text>Your Kimai API token is personal. It is encrypted and only used for your timers and worklogs.</Text>
       <FormSection>
         <Label labelFor="personal-kimai-token">Kimai API token</Label>
@@ -443,7 +447,10 @@ function PersonalKimaiConnection({
           onChange={(event: { target: { value?: unknown } }) => onTokenChange(String(event.target.value ?? ''))}
         />
       </FormSection>
-      <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save personal API token</LoadingButton>
+      <Inline space="space.100">
+        <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back to time entry</Button>
+        <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save personal API token</LoadingButton>
+      </Inline>
       {hasPersonalToken && <Button isDisabled={isPending} onClick={onReset}>Reset API key</Button>}
       {message && <SectionMessage appearance={message.startsWith('Connected') ? 'success' : 'error'} title={message.startsWith('Connected') ? 'Kimai connected' : 'Kimai connection error'}>{message}</SectionMessage>}
     </Stack>
