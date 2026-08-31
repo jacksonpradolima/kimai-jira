@@ -23,7 +23,6 @@ import {
   recordMapping,
   savePendingJiraWorklogCreation,
 } from '../sync/mapping';
-import { formatKimaiTimesheetCorrelation } from '../sync/correlation';
 
 const resolver = new Resolver();
 
@@ -415,10 +414,16 @@ resolver.define('stopTimer', async (request) => {
     if (activeTimesheet.user !== userMapping!.kimaiUserId) {
       return { ok: false, error: 'You can only stop your own Kimai timer.' };
     }
-    const timesheet = await client.stopTimer(timesheetId);
+    const stoppedTimesheet = await client.stopTimer(timesheetId);
+    // Kimai installations can return only a partial timesheet from /stop.
+    // Reload it to obtain the completed begin/end/duration values for Jira.
+    const timesheet = stoppedTimesheet.begin && (stoppedTimesheet.duration !== undefined || stoppedTimesheet.end)
+      ? stoppedTimesheet
+      : await client.getTimesheet(timesheetId);
+    const begin = timesheet.begin ?? activeTimesheet.begin;
     const issueKey = issueKeyFromTimerDescription(timesheet.description ?? activeTimesheet.description);
-    const timeSpentSeconds = timesheet.duration ?? 0;
-    if (!issueKey || !timesheet.begin || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds <= 0) {
+    const timeSpentSeconds = timesheet.duration ?? durationBetween(begin, timesheet.end) ?? 0;
+    if (!issueKey || !begin || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds <= 0) {
       return {
         ok: false,
         error: 'The Kimai timer stopped, but Jira could not create its worklog. Check the entry in Kimai.',
@@ -429,9 +434,9 @@ resolver.define('stopTimer', async (request) => {
     try {
       const worklog = await jiraClient.createWorklogAsUser({
         issueIdOrKey: issueKey,
-        started: timesheet.begin,
+        started: begin,
         timeSpentSeconds,
-        comment: `${formatKimaiTimesheetCorrelation(timesheet.id)} ${timesheet.description ?? `[${issueKey}] Jira issue timer`}`,
+        comment: timesheet.description ?? `[${issueKey}] Jira issue timer`,
       });
       const mapping = {
         jiraIssueId: worklog.issueId,
@@ -524,7 +529,7 @@ resolver.define('createManualTimeEntry', async (request) => {
         issueIdOrKey: issueKey,
         started: jiraBegin,
         timeSpentSeconds,
-        comment: `${formatKimaiTimesheetCorrelation(timesheet.id)} ${description}`,
+        comment: description,
       });
     } catch {
       try {
@@ -616,6 +621,13 @@ export const handler = resolver.getDefinitions();
 function issueKeyFromTimerDescription(description: string | undefined): string | undefined {
   const match = description?.match(/^\[([^\]]+)]/);
   return match?.[1] || undefined;
+}
+
+function durationBetween(begin: string | undefined, end: string | null | undefined): number | undefined {
+  if (!begin || !end) return undefined;
+  const milliseconds = new Date(end).getTime() - new Date(begin).getTime();
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return undefined;
+  return Math.round(milliseconds / 1000);
 }
 
 function manualDescriptionWithIssueMarker(issueKey: string, description: unknown): string {
