@@ -300,29 +300,20 @@ describe('issue context resolver', () => {
   });
 
   it('stops only a timer owned by the invoking Jira user mapping', async () => {
-    mockGetTimesheet
-      .mockResolvedValueOnce({
-        id: 8291,
-        user: 42,
-        begin: '2026-08-30T09:00:00.000Z',
-        description: '[BA-3] Jira issue timer',
-      })
-      .mockResolvedValueOnce({
-        id: 8291,
-        user: 42,
-        begin: '2026-08-30T09:00:00.000Z',
-        end: '2026-08-30T10:00:00.000Z',
-        description: '[BA-3] Jira issue timer',
-      });
-    mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
+    mockStopTimer.mockResolvedValue({
+      id: 8291,
+      user: 42,
+      begin: '2026-08-30T09:00:00.000Z',
+      duration: 3600,
+      description: '[BA-3] Jira issue timer',
+    });
     const stopTimer = (handler as unknown as typeof mockDefinitions).stopTimer;
     const result = await stopTimer({
       context: { accountId: '712020:abc123' },
       payload: { timesheetId: 8291 },
     });
 
-    expect(mockGetTimesheet).toHaveBeenCalledTimes(2);
-    expect(mockGetTimesheet).toHaveBeenLastCalledWith(8291);
+    expect(mockGetTimesheet).toHaveBeenCalledWith(8291);
     expect(mockStopTimer).toHaveBeenCalledWith(8291);
     expect(mockCreateWorklog).toHaveBeenCalledWith({
       issueIdOrKey: 'BA-3',

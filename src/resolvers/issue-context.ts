@@ -415,14 +415,13 @@ resolver.define('stopTimer', async (request) => {
       return { ok: false, error: 'You can only stop your own Kimai timer.' };
     }
     const stoppedTimesheet = await client.stopTimer(timesheetId);
-    // Kimai installations can return only a partial timesheet from /stop.
-    // Reload it to obtain the completed begin/end/duration values for Jira.
-    const timesheet = stoppedTimesheet.begin && (stoppedTimesheet.duration !== undefined || stoppedTimesheet.end)
-      ? stoppedTimesheet
-      : await client.getTimesheet(timesheetId);
-    const begin = timesheet.begin ?? activeTimesheet.begin;
-    const issueKey = issueKeyFromTimerDescription(timesheet.description ?? activeTimesheet.description);
-    const timeSpentSeconds = timesheet.duration ?? durationBetween(begin, timesheet.end) ?? 0;
+    const begin = stoppedTimesheet.begin ?? activeTimesheet.begin;
+    const issueKey = issueKeyFromTimerDescription(stoppedTimesheet.description ?? activeTimesheet.description);
+    // Kimai owns the timer. If its /stop response is partial, use the known
+    // active start and the moment this successful stop request completed.
+    const timeSpentSeconds = stoppedTimesheet.duration
+      ?? durationBetween(begin, stoppedTimesheet.end ?? new Date().toISOString())
+      ?? 0;
     if (!issueKey || !begin || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds <= 0) {
       return {
         ok: false,
@@ -436,21 +435,21 @@ resolver.define('stopTimer', async (request) => {
         issueIdOrKey: issueKey,
         started: begin,
         timeSpentSeconds,
-        comment: timesheet.description ?? `[${issueKey}] Jira issue timer`,
+        comment: stoppedTimesheet.description ?? `[${issueKey}] Jira issue timer`,
       });
       const mapping = {
         jiraIssueId: worklog.issueId,
         jiraIssueKey: issueKey,
         jiraWorklogId: worklog.id,
-        kimaiTimesheetId: timesheet.id,
+        kimaiTimesheetId: stoppedTimesheet.id,
         kimaiUserId: userMapping!.kimaiUserId,
         origin: 'jira' as const,
         lastSyncedAt: new Date().toISOString(),
       };
-      await savePendingJiraWorklogCreation(timesheet.id, mapping);
+      await savePendingJiraWorklogCreation(stoppedTimesheet.id, mapping);
       await recordMapping(mapping);
-      await deletePendingJiraWorklogCreation(timesheet.id);
-      return { ok: true, timesheet, worklog };
+      await deletePendingJiraWorklogCreation(stoppedTimesheet.id);
+      return { ok: true, timesheet: stoppedTimesheet, worklog };
     } catch {
       return {
         ok: false,
