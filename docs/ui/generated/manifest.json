@@ -1,13 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceHash": "49d0afce312d6b03cd7aeaddaaa703fefc02e1103ada797ce473a3bc227972a1",
+  "sourceHash": "166016d88966f3c5b9b8f22d228feffff06b895f00f4ba77ec849ded933ace86",
   "fixtures": {
-    "issue-timer-stopped.png": "c01254fcd0b14e3b22fb12ea612b82658dad280dc1934956c298a87fcf4a8ff7",
-    "issue-timer-running.png": "fd67676f586da245baad8ac413312333fa97e80ce864de203608cf93c1ba6b34",
     "issue-not-configured.png": "55de47a39fdf4a999efef281d8ed554e3a44aa80ba5d74fab18e66d7e9c103e5",
-    "issue-timer-unavailable.png": "80b09bbc7fc6c0a5dc5bdca605e5de11e65af5749fe21d2bdc23864ba451cd2b",
-    "manual-entry-current.png": "bb497b7c557742d0248254e6f46eedfff5125910fc923e06b615834a555c4c33",
-    "issue-personal-connection.png": "8eb1d5a261e81def122b29b0c457f8177ceaee7ce1d4f72a0f2951802d3e0599",
+    "manual-entry-current.png": "80fa3da09434247b076bbd22c85b56a1bbb408b1638f3e83795ed8bd57118ff3",
+    "issue-personal-connection.png": "3059044b611b8615fc9d2cab15c7cfab020b6f341b2a5139e835e1d5f43fe102",
     "admin-configuration.png": "aa3bb16cc24a36d1e2016f4417d421e046ec6693fe9c8369882ba53075e2e2f7",
     "admin-webhook.png": "7dc3776b3b7f77d5df02166e2347c73674f273919fe4fbb6d34bcc23834b9283"
   }

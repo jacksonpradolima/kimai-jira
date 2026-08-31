@@ -31,17 +31,15 @@ function issueFixture(
   fileName: string,
   state: TimerState,
   elapsedTime: string,
-  activeTab: 'timer' | 'manual' = 'timer',
   isManagingConnection = false,
 ): UiDocumentationFixture {
   return {
     fileName,
     kind: 'issue',
-    fullPage: activeTab === 'manual',
+    fullPage: true,
     // Documentation fixture. Uses the same IssueContextView as the Forge runtime.
     element: (
       <IssueContextView
-        activeTab={activeTab}
         elapsedTime={elapsedTime}
         isManagingConnection={isManagingConnection}
         isManualEntryPending={false}
@@ -105,15 +103,9 @@ function adminFixture(fileName: string, overrides: Partial<AdminViewProps>): UiD
 }
 
 export const uiDocumentationFixtures: UiDocumentationFixture[] = [
-  issueFixture('issue-timer-stopped.png', issueState, '00:00:00'),
-  issueFixture('issue-timer-running.png', {
-    ...issueState,
-    runningTimesheet: { id: 1701, begin: '2024-01-01T08:00:00.000Z' },
-  }, '01:42:37'),
   issueFixture('issue-not-configured.png', { configured: false }, '00:00:00'),
-  issueFixture('issue-timer-unavailable.png', { ...issueState, timerUnavailable: true }, '00:00:00'),
-  issueFixture('manual-entry-current.png', issueState, '00:00:00', 'manual'),
-  issueFixture('issue-personal-connection.png', { configured: true, personalTokenConfigured: false }, '00:00:00', 'timer', true),
+  issueFixture('manual-entry-current.png', issueState, '00:00:00'),
+  issueFixture('issue-personal-connection.png', { configured: true, personalTokenConfigured: false }, '00:00:00', true),
   adminFixture('admin-configuration.png', { saved: true }),
   adminFixture('admin-webhook.png', {
     webhookSecret: 'docs-only-secret-********',

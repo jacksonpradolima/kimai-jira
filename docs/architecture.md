@@ -12,7 +12,7 @@ extensions, event triggers, a web trigger endpoint, storage and encrypted secret
 
 | Module | Purpose |
 |---|---|
-| `jira:issueContext` | Right-hand sidebar panel with Timer/Manual tabs, rendered with UI Kit 2 (`@forge/react`). |
+| `jira:issueContext` | Right-hand sidebar panel for Manual entries, rendered with UI Kit 2 (`@forge/react`). |
 | `jira:adminPage` | Site administrator configuration page. |
 | `trigger` | Subscribes to `avi:jira:created/updated/deleted:worklog` events. |
 | `webtrigger` | Public HTTPS endpoint that receives Kimai webhooks. |

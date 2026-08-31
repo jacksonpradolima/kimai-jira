@@ -5,14 +5,10 @@
 ```mermaid
 flowchart TD
   issue[Jira Issue] --> context[Kimai Issue Context]
-  context --> timer[Timer]
-  timer --> personal[Personal API connection]
+  context --> manual[Manual entry]
+  manual --> personal[Personal API connection]
   personal --> token[Save or reset API token]
   token --> identity[Kimai /api/users/me identity]
-  timer --> stopped[Stopped]
-  timer --> running[Running]
-  timer --> unavailable[Unavailable]
-  context --> manual[Manual]
   manual --> manualForm[Manual entry form]
   manualForm --> saved[Kimai timesheet created]
 ```
