@@ -19,8 +19,13 @@ const mockGetActivities = jest.fn();
 const mockCreateProject = jest.fn();
 const mockCreateActivity = jest.fn();
 const mockCreateTimesheet = jest.fn();
+const mockDeleteTimesheet = jest.fn();
 const mockStartTimer = jest.fn();
 const mockStopTimer = jest.fn();
+const mockCreateWorklog = jest.fn();
+const mockRecordMapping = jest.fn();
+const mockSavePendingJiraWorklogCreation = jest.fn();
+const mockDeletePendingJiraWorklogCreation = jest.fn();
 const mockClaimTimerStart = jest.fn();
 const mockReleaseTimerStart = jest.fn();
 const mockGetJiraIssueKimaiTarget = jest.fn();
@@ -74,12 +79,24 @@ jest.mock('../../src/kimai/client', () => ({
     createProject: mockCreateProject,
     createActivity: mockCreateActivity,
     createTimesheet: mockCreateTimesheet,
+    deleteTimesheet: mockDeleteTimesheet,
     startTimer: mockStartTimer,
     stopTimer: mockStopTimer,
   })),
 }));
 jest.mock('../../src/jira/client', () => ({
-  ForgeJiraClient: jest.fn(() => ({ getIssueDetails: mockGetIssueDetails })),
+  ForgeJiraClient: jest.fn(() => ({
+    getIssueDetails: mockGetIssueDetails,
+    createWorklogAsUser: mockCreateWorklog,
+  })),
+}));
+jest.mock('../../src/sync/mapping', () => ({
+  recordMapping: mockRecordMapping,
+  savePendingJiraWorklogCreation: mockSavePendingJiraWorklogCreation,
+  deletePendingJiraWorklogCreation: mockDeletePendingJiraWorklogCreation,
+}));
+jest.mock('../../src/sync/correlation', () => ({
+  formatKimaiTimesheetCorrelation: (timesheetId: number) => `[kimai-jira-timesheet:${timesheetId}]`,
 }));
 
 import { handler } from '../../src/resolvers/issue-context';
@@ -96,15 +113,31 @@ describe('issue context resolver', () => {
     mockGetCurrentUser.mockResolvedValue({ id: 42, username: 'kimai-user' });
     mockGetUserMapping.mockResolvedValue({ kimaiUserId: 42, kimaiBaseUrl: 'https://kimai.example.test', enabled: true });
     mockGetActiveTimesheets.mockResolvedValue([]);
-    mockGetTimesheet.mockResolvedValue({ id: 8291, user: 42 });
+    mockGetTimesheet.mockResolvedValue({
+      id: 8291,
+      user: 42,
+      begin: '2026-08-30T09:00:00.000Z',
+      description: '[BA-3] Jira issue timer',
+    });
     mockGetCustomers.mockResolvedValue([{ id: 1, name: 'Acme' }]);
     mockGetProjects.mockResolvedValue([{ id: 10, name: 'BA - Billing', customer: 1 }]);
     mockGetActivities.mockResolvedValue([{ id: 20, name: '[BA-3] Improve billing', project: 10 }]);
     mockCreateProject.mockResolvedValue({ id: 10, name: 'BA - Billing', customer: 1 });
     mockCreateActivity.mockResolvedValue({ id: 20, name: '[BA-3] Improve billing', project: 10 });
     mockCreateTimesheet.mockResolvedValue({ id: 8300 });
+    mockDeleteTimesheet.mockResolvedValue(undefined);
+    mockCreateWorklog.mockResolvedValue({ id: '100271', issueId: '10001' });
+    mockRecordMapping.mockResolvedValue(undefined);
+    mockSavePendingJiraWorklogCreation.mockResolvedValue(undefined);
+    mockDeletePendingJiraWorklogCreation.mockResolvedValue(undefined);
     mockStartTimer.mockResolvedValue({ id: 8291 });
-    mockStopTimer.mockResolvedValue({ id: 8291, user: 42 });
+    mockStopTimer.mockResolvedValue({
+      id: 8291,
+      user: 42,
+      begin: '2026-08-30T09:00:00.000Z',
+      duration: 3600,
+      description: '[BA-3] Jira issue timer',
+    });
     mockClaimTimerStart.mockResolvedValue(true);
     mockReleaseTimerStart.mockResolvedValue(undefined);
     mockClaimJiraIssueKimaiTarget.mockResolvedValue(true);
@@ -267,6 +300,13 @@ describe('issue context resolver', () => {
   });
 
   it('stops only a timer owned by the invoking Jira user mapping', async () => {
+    mockStopTimer.mockResolvedValue({
+      id: 8291,
+      user: 42,
+      begin: '2026-08-30T09:00:00.000Z',
+      duration: 3600,
+      description: '[BA-3] Jira issue timer',
+    });
     const stopTimer = (handler as unknown as typeof mockDefinitions).stopTimer;
     const result = await stopTimer({
       context: { accountId: '712020:abc123' },
@@ -275,7 +315,19 @@ describe('issue context resolver', () => {
 
     expect(mockGetTimesheet).toHaveBeenCalledWith(8291);
     expect(mockStopTimer).toHaveBeenCalledWith(8291);
-    expect(result).toEqual({ ok: true, timesheet: { id: 8291, user: 42 } });
+    expect(mockCreateWorklog).toHaveBeenCalledWith({
+      issueIdOrKey: 'BA-3',
+      started: '2026-08-30T09:00:00.000Z',
+      timeSpentSeconds: 3600,
+      comment: '[BA-3] Jira issue timer',
+    });
+    expect(mockRecordMapping).toHaveBeenCalledWith(expect.objectContaining({
+      jiraWorklogId: '100271', kimaiTimesheetId: 8291, origin: 'jira',
+    }));
+    expect(result).toEqual(expect.objectContaining({
+      ok: true,
+      timesheet: expect.objectContaining({ id: 8291, user: 42 }),
+    }));
   });
 
   it('refuses to stop a timer owned by another Kimai user', async () => {
@@ -350,7 +402,32 @@ describe('issue context resolver', () => {
       description: '[BA-3] Investigate billing synchronization',
       billable: true,
     });
-    expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
+    expect(mockCreateWorklog).toHaveBeenCalledWith({
+      issueIdOrKey: 'BA-3',
+      started: '2026-08-30T09:00:00',
+      timeSpentSeconds: 5400,
+      comment: '[BA-3] Investigate billing synchronization',
+    });
+    expect(mockRecordMapping).toHaveBeenCalledWith(expect.objectContaining({
+      jiraWorklogId: '100271', kimaiTimesheetId: 8300, origin: 'jira',
+    }));
+    expect(result).toEqual(expect.objectContaining({ ok: true, timesheet: { id: 8300 } }));
+  });
+
+  it('removes the Kimai entry when creating its Jira worklog fails', async () => {
+    mockCreateWorklog.mockRejectedValue(new Error('Jira worklog create failed'));
+    const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
+
+    const result = await createManualTimeEntry({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {
+        customerId: 1, description: 'Investigate billing synchronization', date: '2026-08-30',
+        startTime: '09:00', duration: '01:00:00', timezoneOffsetMinutes: 0,
+      },
+    });
+
+    expect(mockDeleteTimesheet).toHaveBeenCalledWith(8300);
+    expect(result).toEqual({ ok: false, error: 'Jira could not add the worklog. The Kimai entry was removed.' });
   });
 
   it('preserves the selected local time for Kimai manual entries', async () => {

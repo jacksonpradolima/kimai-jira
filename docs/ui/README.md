@@ -12,10 +12,7 @@ requiring Jira, Kimai, Forge credentials, or network access.
 
 | Screen | Status | Source |
 | --- | --- | --- |
-| Timer stopped | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
-| Timer running | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
 | Not configured | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
-| Timer unavailable | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
 | Personal API connection | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
 | Manual time entry | Implemented | `src/frontend/issue-context/IssueContextView.tsx` |
 | Admin configuration | Implemented | `src/frontend/admin/AdminView.tsx` |
@@ -23,13 +20,7 @@ requiring Jira, Kimai, Forge credentials, or network access.
 
 ### Jira issue context
 
-| Timer stopped | Timer running |
-| --- | --- |
-| ![Timer stopped](generated/issue-timer-stopped.png) | ![Timer running](generated/issue-timer-running.png) |
-
-| Not configured | Timer unavailable |
-| --- | --- |
-| ![Kimai not configured](generated/issue-not-configured.png) | ![Timer unavailable](generated/issue-timer-unavailable.png) |
+![Kimai not configured](generated/issue-not-configured.png)
 
 ![Personal Kimai API connection](generated/issue-personal-connection.png)
 

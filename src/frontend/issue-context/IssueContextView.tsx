@@ -90,9 +90,7 @@ export interface IssueContextViewProps {
  */
 export const IssueContextView = ({
   state,
-  elapsedTime,
   selectedKimaiCustomerId,
-  isTimerActionPending,
   isManagingConnection,
   isPersonalConnectionPending,
   personalApiToken,
@@ -106,7 +104,6 @@ export const IssueContextView = ({
   isManualEntryPending,
   manualEntryMessage,
   error,
-  activeTab = 'manual',
   onCustomerChange,
   onManageConnection,
   onConnectionBack,
@@ -119,8 +116,6 @@ export const IssueContextView = ({
   onManualEndTimeChange,
   onManualBillableChange,
   onCreateManualEntry,
-  onStart,
-  onStop,
 }: IssueContextViewProps) => {
   if (!state.configured) {
     return <Text>Kimai is not configured yet. Ask a site administrator to set it up.</Text>;
@@ -143,10 +138,14 @@ export const IssueContextView = ({
     />
   );
 
+  if (isManagingConnection) {
+    return <Stack space="space.100">{connection}</Stack>;
+  }
+
   return (
     <Stack space="space.100">
-      <Tabs key={activeTab} defaultSelected={activeTab === 'timer' ? 1 : 0} id="kimai-tabs">
-        <TabList><Tab>Manual</Tab><Tab>Timer</Tab></TabList>
+      <Tabs defaultSelected={0} id="kimai-tabs">
+        <TabList><Tab>Manual</Tab></TabList>
         <TabPanel>
           <ManualTimeEntry
             customerOptions={customerOptions}
@@ -170,82 +169,8 @@ export const IssueContextView = ({
             startTime={manualStartTime}
           />
         </TabPanel>
-        <TabPanel>
-          <Stack space="space.100">
-            {isManagingConnection ? (
-              connection
-            ) : !state.personalTokenConfigured ? (
-              <PersonalKimaiConnection
-                hasPersonalToken={false}
-                isManagingConnection={isManagingConnection}
-                isPending={isPersonalConnectionPending}
-                message={personalConnectionMessage}
-                onManage={onManageConnection}
-                onBack={onConnectionBack}
-                onReset={onResetPersonalToken}
-                onSave={onSavePersonalToken}
-                onTokenChange={onPersonalApiTokenChange}
-                token={personalApiToken}
-              />
-            ) : state.timerUnavailable ? (
-              <><Text>Unable to verify the active Kimai timer. Try again shortly.</Text>{connection}</>
-            ) : state.timerSetupError ? (
-              <><Text>{state.timerSetupError}</Text>{connection}</>
-            ) : (
-              <Stack alignInline="stretch" grow="fill" space="space.100">
-                <FormSection>
-                  <Label labelFor="timer-elapsed">Elapsed time</Label>
-                  <Textfield id="timer-elapsed" isDisabled value={elapsedTime} width="100%" />
-                </FormSection>
-                {state.runningTimesheet ? (
-                  <LoadingButton appearance="primary" isDisabled={isTimerActionPending} isLoading={isTimerActionPending} onClick={onStop} shouldFitContainer>Stop</LoadingButton>
-                ) : (
-                  <LoadingButton
-                    appearance="primary"
-                    isDisabled={isTimerActionPending || customerOptions.length === 0 || !selectedKimaiCustomerId}
-                    isLoading={isTimerActionPending}
-                    onClick={onStart}
-                    shouldFitContainer
-                  >Start</LoadingButton>
-                )}
-                {customerOptions.length === 0 ? (
-                  <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
-                ) : (
-                  <FormSection>
-                    <Label labelFor="kimai-customer">Customer</Label>
-                    <Select
-                      inputId="kimai-customer"
-                      isDisabled={Boolean(state.runningTimesheet) || isTimerActionPending}
-                      name="kimai-customer"
-                      onChange={(option) => {
-                        const selected = option as { value?: unknown } | null;
-                        onCustomerChange(typeof selected?.value === 'number' ? selected.value : undefined);
-                      }}
-                      options={customerOptions}
-                      placeholder="Select a customer"
-                      value={selectedCustomer}
-                    />
-                  </FormSection>
-                )}
-                <FormSection>
-                  <Label labelFor="timer-project">Project</Label>
-                  <Textfield id="timer-project" isDisabled value={state.target?.projectName ?? ''} width="100%" />
-                </FormSection>
-                <FormSection>
-                  <Label labelFor="timer-issue">Issue (Kimai activity)</Label>
-                  <Textfield id="timer-issue" isDisabled value={state.target?.activityName ?? ''} width="100%" />
-                </FormSection>
-                <Box xcss={xcss({
-                  borderBlockStartColor: 'color.border',
-                  borderBlockStartWidth: 'border.width',
-                  paddingBlockStart: 'space.150',
-                })}>{connection}</Box>
-              </Stack>
-            )}
-            {error && <Text>{error}</Text>}
-          </Stack>
-        </TabPanel>
       </Tabs>
+      {error && <Text>{error}</Text>}
     </Stack>
   );
 };

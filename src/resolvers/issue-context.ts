@@ -18,6 +18,11 @@ import {
   saveJiraProjectCustomerMapping,
 } from '../storage/issue-targets';
 import { AppError, toSafeUserMessage } from '../shared/errors';
+import {
+  deletePendingJiraWorklogCreation,
+  recordMapping,
+  savePendingJiraWorklogCreation,
+} from '../sync/mapping';
 
 const resolver = new Resolver();
 
@@ -100,6 +105,21 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   // Sending a converted UTC value without `Z` makes Kimai interpret it as a
   // second local time, which can move late-evening entries into the next day.
   return `${date}T${time}:00`;
+}
+
+function utcTimestamp(date: string, time: string, timezoneOffsetMinutes: unknown): string {
+  if (
+    typeof timezoneOffsetMinutes !== 'number'
+    || !Number.isInteger(timezoneOffsetMinutes)
+    || Math.abs(timezoneOffsetMinutes) > 14 * 60
+  ) {
+    throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
+  }
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000)
+    .toISOString()
+    .slice(0, 19);
 }
 
 function addDuration(begin: string, seconds: number): string {
@@ -394,8 +414,48 @@ resolver.define('stopTimer', async (request) => {
     if (activeTimesheet.user !== userMapping!.kimaiUserId) {
       return { ok: false, error: 'You can only stop your own Kimai timer.' };
     }
-    const timesheet = await client.stopTimer(timesheetId);
-    return { ok: true, timesheet };
+    const stoppedTimesheet = await client.stopTimer(timesheetId);
+    const begin = stoppedTimesheet.begin ?? activeTimesheet.begin;
+    const issueKey = issueKeyFromTimerDescription(stoppedTimesheet.description ?? activeTimesheet.description);
+    // Kimai owns the timer. If its /stop response is partial, use the known
+    // active start and the moment this successful stop request completed.
+    const timeSpentSeconds = stoppedTimesheet.duration
+      ?? durationBetween(begin, stoppedTimesheet.end ?? new Date().toISOString())
+      ?? 0;
+    if (!issueKey || !begin || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds <= 0) {
+      return {
+        ok: false,
+        error: 'The Kimai timer stopped, but Jira could not create its worklog. Check the entry in Kimai.',
+      };
+    }
+
+    const jiraClient = new ForgeJiraClient();
+    try {
+      const worklog = await jiraClient.createWorklogAsUser({
+        issueIdOrKey: issueKey,
+        started: begin,
+        timeSpentSeconds,
+        comment: stoppedTimesheet.description ?? `[${issueKey}] Jira issue timer`,
+      });
+      const mapping = {
+        jiraIssueId: worklog.issueId,
+        jiraIssueKey: issueKey,
+        jiraWorklogId: worklog.id,
+        kimaiTimesheetId: stoppedTimesheet.id,
+        kimaiUserId: userMapping!.kimaiUserId,
+        origin: 'jira' as const,
+        lastSyncedAt: new Date().toISOString(),
+      };
+      await savePendingJiraWorklogCreation(stoppedTimesheet.id, mapping);
+      await recordMapping(mapping);
+      await deletePendingJiraWorklogCreation(stoppedTimesheet.id);
+      return { ok: true, timesheet: stoppedTimesheet, worklog };
+    } catch {
+      return {
+        ok: false,
+        error: 'The Kimai timer stopped, but Jira could not create its worklog. Check the entry in Kimai.',
+      };
+    }
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   }
@@ -437,20 +497,66 @@ resolver.define('createManualTimeEntry', async (request) => {
       throw new AppError('INVALID_MANUAL_PERIOD', 'End time must differ from start time.');
     }
 
+    const jiraBegin = utcTimestamp(date, startTime, timezoneOffsetMinutes);
+    let jiraEnd = payload.endTime
+      ? utcTimestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes)
+      : addDuration(jiraBegin, duration as number);
+    if (jiraEnd < jiraBegin) {
+      jiraEnd = addDuration(jiraEnd, 24 * 60 * 60);
+    }
+    const timeSpentSeconds = duration ?? Math.round(
+      (new Date(`${jiraEnd}Z`).getTime() - new Date(`${jiraBegin}Z`).getTime()) / 1000,
+    );
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
-    const issue = await new ForgeJiraClient().getIssueDetails(issueKey);
+    const jiraClient = new ForgeJiraClient();
+    const issue = await jiraClient.getIssueDetails(issueKey);
     const customerId = await resolveKimaiCustomerId(client, issue, getCustomerId(payload));
     const target = await resolveTimerTarget(client, issue, customerId);
+    const description = manualDescriptionWithIssueMarker(issueKey, payload.description);
     const timesheet = await client.createTimesheet({
       begin,
       end: end ?? addDuration(begin, duration as number),
       project: target.projectId,
       activity: target.activityId,
       user: userMapping!.kimaiUserId,
-      description: manualDescriptionWithIssueMarker(issueKey, payload.description),
+      description,
       billable: payload.billable === true,
     });
-    return { ok: true, timesheet };
+    let worklog;
+    try {
+      worklog = await jiraClient.createWorklogAsUser({
+        issueIdOrKey: issueKey,
+        started: jiraBegin,
+        timeSpentSeconds,
+        comment: description,
+      });
+    } catch {
+      try {
+        await client.deleteTimesheet(timesheet.id);
+      } catch {
+        throw new AppError(
+          'JIRA_WORKLOG_CREATE_FAILED',
+          'Jira could not add the worklog. The Kimai entry was created; remove it manually before retrying.',
+        );
+      }
+      throw new AppError(
+        'JIRA_WORKLOG_CREATE_FAILED',
+        'Jira could not add the worklog. The Kimai entry was removed.',
+      );
+    }
+    const mapping = {
+      jiraIssueId: worklog.issueId,
+      jiraIssueKey: issueKey,
+      jiraWorklogId: worklog.id,
+      kimaiTimesheetId: timesheet.id,
+      kimaiUserId: userMapping!.kimaiUserId,
+      origin: 'jira' as const,
+      lastSyncedAt: new Date().toISOString(),
+    };
+    await savePendingJiraWorklogCreation(timesheet.id, mapping);
+    await recordMapping(mapping);
+    await deletePendingJiraWorklogCreation(timesheet.id);
+    return { ok: true, timesheet, worklog };
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   }
@@ -510,6 +616,18 @@ resolver.define('clearPersonalKimaiToken', async (request) => {
 });
 
 export const handler = resolver.getDefinitions();
+
+function issueKeyFromTimerDescription(description: string | undefined): string | undefined {
+  const match = description?.match(/^\[([^\]]+)]/);
+  return match?.[1] || undefined;
+}
+
+function durationBetween(begin: string | undefined, end: string | null | undefined): number | undefined {
+  if (!begin || !end) return undefined;
+  const milliseconds = new Date(end).getTime() - new Date(begin).getTime();
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return undefined;
+  return Math.round(milliseconds / 1000);
+}
 
 function manualDescriptionWithIssueMarker(issueKey: string, description: unknown): string {
   const text = typeof description === 'string' ? description.trim() : '';
