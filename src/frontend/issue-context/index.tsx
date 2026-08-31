@@ -19,6 +19,10 @@ function localDateInputValue(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function localTimeInputValue(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 function defaultManualDescription(timerState: TimerState | undefined): string {
   if (!timerState?.issueKey || !timerState.issueSummary) return '';
   return `[${timerState.issueKey}] ${timerState.issueSummary}`;
@@ -29,7 +33,8 @@ function manualTotalDuration(startTime: string, endTime: string): string {
     return '—';
   }
   const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
-  const totalMinutes = minutes(endTime) - minutes(startTime);
+  const rawTotalMinutes = minutes(endTime) - minutes(startTime);
+  const totalMinutes = rawTotalMinutes < 0 ? rawTotalMinutes + 24 * 60 : rawTotalMinutes;
   if (totalMinutes <= 0) return '—';
   const hours = Math.floor(totalMinutes / 60);
   const remainingMinutes = totalMinutes % 60;
@@ -60,8 +65,8 @@ const App = () => {
   const [selectedKimaiCustomerId, setSelectedKimaiCustomerId] = useState<number | undefined>(undefined);
   const [manualDescription, setManualDescription] = useState('');
   const [manualDate, setManualDate] = useState(localDateInputValue);
-  const [manualStartTime, setManualStartTime] = useState('09:00');
-  const [manualEndTime, setManualEndTime] = useState('10:00');
+  const [manualStartTime, setManualStartTime] = useState(() => localTimeInputValue(new Date()));
+  const [manualEndTime, setManualEndTime] = useState(() => localTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)));
   const [manualTags, setManualTags] = useState<string[]>([]);
   const [manualTagInput, setManualTagInput] = useState('');
   const [manualBillable, setManualBillable] = useState(false);

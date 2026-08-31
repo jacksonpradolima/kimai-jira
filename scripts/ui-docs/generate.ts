@@ -39,6 +39,13 @@ function readText(node: ForgeNode): string {
   return node.children.map(readText).join('');
 }
 
+function formatTimePickerValue(value: unknown): string {
+  const [hour = '00', minute = '00'] = String(value).split(':');
+  const hourNumber = Number(hour);
+  if (!Number.isInteger(hourNumber) || hourNumber < 0 || hourNumber > 23) return String(value);
+  return `${hourNumber % 12 || 12}:${minute} ${hourNumber < 12 ? 'AM' : 'PM'}`;
+}
+
 function renderTabs(node: ForgeNode): string {
   const selectedIndex = Number(node.props.defaultSelected ?? 0);
   const tabList = node.children.find((child) => child.type === 'TabList');
@@ -83,6 +90,7 @@ function renderNode(node: ForgeNode | undefined): string {
       const value = node.props.type === 'password' ? '••••••••••••' : node.props.value ?? '';
       return `<input class="${node.props.isReadOnly ? 'input--readonly' : ''}" readonly value="${escapeHtml(value)}" />`;
     }
+    case 'TimePicker': return `<input readonly value="${escapeHtml(formatTimePickerValue(node.props.value))}" />`;
     case 'TextArea': return `<textarea readonly>${escapeHtml(node.props.value ?? '')}</textarea>`;
     case 'Checkbox': return `<label class="checkbox"><input type="checkbox"${node.props.isChecked ? ' checked' : ''} />${escapeHtml(node.props.label ?? '')}</label>`;
     case 'Toggle': return `<span class="toggle" role="switch" aria-checked="${node.props.isChecked ? 'true' : 'false'}"><span class="toggle__thumb"></span></span>`;

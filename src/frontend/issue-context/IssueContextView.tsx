@@ -17,6 +17,7 @@ import {
   Text,
   TextArea,
   Textfield,
+  TimePicker,
   Toggle,
   Tooltip,
   xcss,
@@ -341,11 +342,25 @@ function ManualTimeEntry({
         </FormSection>
         <FormSection>
           <Label labelFor="manual-start-time">Start time</Label>
-          <Textfield id="manual-start-time" type="time" value={startTime} onChange={(event: { target: { value?: unknown } }) => onStartTimeChange(String(event.target.value ?? ''))} />
+          <TimePicker
+            id="manual-start-time"
+            locale="en-US"
+            timeFormat="hh:mm a"
+            timeIsEditable
+            value={`${startTime}:00`}
+            onChange={(value) => onStartTimeChange(value.slice(0, 5))}
+          />
         </FormSection>
         <FormSection>
           <Label labelFor="manual-end-time">End time</Label>
-          <Textfield id="manual-end-time" type="time" value={endTime} onChange={(event: { target: { value?: unknown } }) => onEndTimeChange(String(event.target.value ?? ''))} />
+          <TimePicker
+            id="manual-end-time"
+            locale="en-US"
+            timeFormat="hh:mm a"
+            timeIsEditable
+            value={`${endTime}:00`}
+            onChange={(value) => onEndTimeChange(value.slice(0, 5))}
+          />
         </FormSection>
       </Inline>
       <FormSection>

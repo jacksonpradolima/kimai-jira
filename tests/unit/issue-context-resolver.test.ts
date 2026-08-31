@@ -355,7 +355,7 @@ describe('issue context resolver', () => {
     expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });
   });
 
-  it('preserves the selected local time for Kimai manual entries', async () => {
+  it('converts the selected local time to UTC for Kimai manual entries', async () => {
     const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
 
     await createManualTimeEntry({
@@ -368,7 +368,23 @@ describe('issue context resolver', () => {
     });
 
     expect(mockCreateTimesheet).toHaveBeenCalledWith(expect.objectContaining({
-      begin: '2026-08-30T09:00:00', end: '2026-08-30T10:00:00',
+      begin: '2026-08-30T13:00:00', end: '2026-08-30T14:00:00',
+    }));
+  });
+
+  it('treats an end time after midnight as the following day', async () => {
+    const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
+
+    await createManualTimeEntry({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {
+        customerId: 1, date: '2026-08-30', startTime: '23:30', endTime: '00:30',
+        timezoneOffsetMinutes: 0,
+      },
+    });
+
+    expect(mockCreateTimesheet).toHaveBeenCalledWith(expect.objectContaining({
+      begin: '2026-08-30T23:30:00', end: '2026-08-31T00:30:00',
     }));
   });
 });

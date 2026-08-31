@@ -97,9 +97,12 @@ function timestamp(date: string, time: string, timezoneOffsetMinutes: unknown): 
   ) {
     throw new AppError('INVALID_TIMEZONE_OFFSET', 'Timezone offset is invalid.');
   }
-  // Kimai expects an HTML5 local date-time. Converting the browser selection to
-  // UTC before sending it shifts manual entries by the user's timezone offset.
-  return `${date}T${time}:00`;
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  // Date#getTimezoneOffset is UTC minus local time. Add it to turn the wall-clock
+  // date/time selected in the browser into the corresponding UTC instant.
+  const utcMillis = Date.UTC(year, month - 1, day, hours, minutes) + timezoneOffsetMinutes * 60 * 1000;
+  return new Date(utcMillis).toISOString().slice(0, 19);
 }
 
 function addDuration(begin: string, seconds: number): string {
@@ -436,12 +439,15 @@ resolver.define('createManualTimeEntry', async (request) => {
     const duration = durationSeconds(payload.duration);
     const timezoneOffsetMinutes = payload.timezoneOffsetMinutes;
     const begin = timestamp(date, startTime, timezoneOffsetMinutes);
-    const end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes) : undefined;
+    let end = payload.endTime ? timestamp(date, timeValue(payload.endTime, 'End time'), timezoneOffsetMinutes) : undefined;
     if (!end && duration === undefined) {
       throw new AppError('MANUAL_DURATION_REQUIRED', 'Enter a duration or an end time.');
     }
-    if (end && end <= begin) {
-      throw new AppError('INVALID_MANUAL_PERIOD', 'End time must be after start time.');
+    if (end && end < begin) {
+      end = addDuration(end, 24 * 60 * 60);
+    }
+    if (end === begin) {
+      throw new AppError('INVALID_MANUAL_PERIOD', 'End time must differ from start time.');
     }
 
     const client = new HttpKimaiClient({ baseUrl: config.url, apiToken });
