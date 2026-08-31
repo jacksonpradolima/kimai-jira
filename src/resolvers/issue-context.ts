@@ -416,7 +416,42 @@ resolver.define('stopTimer', async (request) => {
       return { ok: false, error: 'You can only stop your own Kimai timer.' };
     }
     const timesheet = await client.stopTimer(timesheetId);
-    return { ok: true, timesheet };
+    const issueKey = issueKeyFromTimerDescription(timesheet.description ?? activeTimesheet.description);
+    const timeSpentSeconds = timesheet.duration ?? 0;
+    if (!issueKey || !timesheet.begin || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds <= 0) {
+      return {
+        ok: false,
+        error: 'The Kimai timer stopped, but Jira could not create its worklog. Check the entry in Kimai.',
+      };
+    }
+
+    const jiraClient = new ForgeJiraClient();
+    try {
+      const worklog = await jiraClient.createWorklogAsUser({
+        issueIdOrKey: issueKey,
+        started: timesheet.begin,
+        timeSpentSeconds,
+        comment: `${formatKimaiTimesheetCorrelation(timesheet.id)} ${timesheet.description ?? `[${issueKey}] Jira issue timer`}`,
+      });
+      const mapping = {
+        jiraIssueId: worklog.issueId,
+        jiraIssueKey: issueKey,
+        jiraWorklogId: worklog.id,
+        kimaiTimesheetId: timesheet.id,
+        kimaiUserId: userMapping!.kimaiUserId,
+        origin: 'jira' as const,
+        lastSyncedAt: new Date().toISOString(),
+      };
+      await savePendingJiraWorklogCreation(timesheet.id, mapping);
+      await recordMapping(mapping);
+      await deletePendingJiraWorklogCreation(timesheet.id);
+      return { ok: true, timesheet, worklog };
+    } catch {
+      return {
+        ok: false,
+        error: 'The Kimai timer stopped, but Jira could not create its worklog. Check the entry in Kimai.',
+      };
+    }
   } catch (error) {
     return { ok: false, error: toSafeUserMessage(error) };
   }
@@ -485,12 +520,11 @@ resolver.define('createManualTimeEntry', async (request) => {
     });
     let worklog;
     try {
-      worklog = await jiraClient.createWorklog({
+      worklog = await jiraClient.createWorklogAsUser({
         issueIdOrKey: issueKey,
         started: jiraBegin,
         timeSpentSeconds,
         comment: `${formatKimaiTimesheetCorrelation(timesheet.id)} ${description}`,
-        authorAccountId: accountId,
       });
     } catch {
       try {
@@ -578,6 +612,11 @@ resolver.define('clearPersonalKimaiToken', async (request) => {
 });
 
 export const handler = resolver.getDefinitions();
+
+function issueKeyFromTimerDescription(description: string | undefined): string | undefined {
+  const match = description?.match(/^\[([^\]]+)]/);
+  return match?.[1] || undefined;
+}
 
 function manualDescriptionWithIssueMarker(issueKey: string, description: unknown): string {
   const text = typeof description === 'string' ? description.trim() : '';

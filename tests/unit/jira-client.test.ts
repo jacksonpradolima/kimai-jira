@@ -1,7 +1,9 @@
 const mockRequestJira = jest.fn();
+const mockUserRequestJira = jest.fn();
 
 jest.mock('@forge/api', () => ({
   asApp: () => ({ requestJira: mockRequestJira }),
+  asUser: () => ({ requestJira: mockUserRequestJira }),
   route: (strings: TemplateStringsArray, ...values: string[]) =>
     strings.reduce((path, segment, index) => path + (values[index - 1] ?? '') + segment),
 }));
@@ -48,6 +50,21 @@ describe('ForgeJiraClient', () => {
         ],
       },
     });
+  });
+
+  it('creates manual worklogs as the invoking Jira user', async () => {
+    mockUserRequestJira.mockResolvedValue(
+      successfulResponse({ id: '100271', issueId: '10001', started: '', timeSpentSeconds: 60 }),
+    );
+
+    await new ForgeJiraClient().createWorklogAsUser({
+      issueIdOrKey: 'BA-3',
+      started: '2026-08-27T10:00:00.000Z',
+      timeSpentSeconds: 60,
+    });
+
+    expect(mockUserRequestJira).toHaveBeenCalledTimes(1);
+    expect(mockRequestJira).not.toHaveBeenCalled();
   });
 
   it('resolves an issue key from a worklog issue ID', async () => {

@@ -1,4 +1,4 @@
-import { asApp, route } from '@forge/api';
+import { asApp, asUser, route } from '@forge/api';
 
 export interface CreateJiraWorklogInput {
   issueIdOrKey: string;
@@ -69,7 +69,27 @@ export interface JiraClient {
 
 export class ForgeJiraClient implements JiraClient, JiraIssueResolver {
   async createWorklog(input: CreateJiraWorklogInput): Promise<JiraWorklog> {
-    const response = await asApp().requestJira(
+    return this.createWorklogWithRequester(input, asApp().requestJira.bind(asApp()));
+  }
+
+  /**
+   * Creates a worklog as the Forge user who invoked the resolver. This is
+   * used for manual entries so Jira records the person who logged the time,
+   * rather than the Forge app account.
+   */
+  async createWorklogAsUser(input: Omit<CreateJiraWorklogInput, 'authorAccountId'>): Promise<JiraWorklog> {
+    return this.createWorklogWithRequester(input, asUser().requestJira.bind(asUser()));
+  }
+
+  private async createWorklogWithRequester(
+    input: CreateJiraWorklogInput,
+    requestJira: typeof asApp extends () => infer Client
+      ? Client extends { requestJira: infer Request }
+        ? Request
+        : never
+      : never,
+  ): Promise<JiraWorklog> {
+    const response = await requestJira(
       route`/rest/api/3/issue/${input.issueIdOrKey}/worklog`,
       {
         method: 'POST',
