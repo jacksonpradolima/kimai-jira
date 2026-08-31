@@ -23,6 +23,8 @@ nav = [
   { "Testing" = "testing.md" },
   { "Troubleshooting" = "troubleshooting.md" },
   { "Security" = "security.md" },
+  { "Privacy Policy" = "privacy-policy.md" },
+  { "Terms of Service" = "terms-of-service.md" },
   { "Contributing" = "contributing.md" },
 ]
 

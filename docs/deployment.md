@@ -269,19 +269,33 @@ npm run check
 npx forge lint
 ```
 
-## 5. Deploy and install in company production
+## 5. Deploy and share the company production app
 
 From the company-owned deployment clone, with the production Kimai hostname already
 in `manifest.yml`, run:
 
 ```bash
 npx forge deploy --environment production
-npx forge install --environment production --site your-company.atlassian.net --product jira
 ```
 
-The second command must be performed by a Jira site administrator or a Forge owner
-with permission to install on that site. Carefully review the requested Forge scopes
-before confirming. The production app is titled **Kimai** (without a development or
+For a company rollout, do not leave the production app's distribution status as
+**Not sharing**: Forge limits such an app to its contributors, so ordinary Jira users
+will see an access-denied page. After deploying, the Forge app owner must:
+
+1. Open the app in the [Forge developer console](https://developer.atlassian.com/console/myapps/)
+   and select **Distribution**.
+2. Under **Distribution controls**, select **Edit**, choose **Sharing**, complete the
+   app details, and save. Use the published [Privacy Policy](privacy-policy.md) and
+   [Terms of Service](terms-of-service.md) URLs from this documentation site in the
+   corresponding fields.
+3. Under **Installation link**, select **Jira**, copy the generated link, and give it
+   to a Jira site administrator.
+4. Have that administrator open the link, choose `your-company.atlassian.net`, review
+   the requested Forge scopes, and install the app.
+
+The generated link is the installation path for non-contributor users. Keep it within
+the intended organization and regenerate it from the Distribution page if it is shared
+outside the intended audience. The production app is titled **Kimai** (without a development or
 staging suffix).
 
 If Forge reports a major-version approval, read the listed change and explicitly
@@ -325,11 +339,13 @@ the company site:
 
 ```bash
 npx forge deploy --environment production
-npx forge install --environment production --site your-company.atlassian.net --product jira --upgrade
 ```
 
 Keep the production Kimai hostname and Forge app ID stable. Re-running `forge register`
 instead creates a different app and loses the connection to the existing app's data.
+For a major permission or egress change, the Jira administrator must approve the
+upgrade from Atlassian's installation or connected-app flow before users can use the
+new permission.
 
 ## If something does not work
 
