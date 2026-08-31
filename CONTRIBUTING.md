@@ -1,0 +1,70 @@
+# Contributing
+
+Thanks for considering a contribution to Kimai for Jira!
+
+## Workflow
+
+```mermaid
+flowchart LR
+  fork[Fork] --> branch[Branch] --> pullRequest[Pull Request] --> ci[CI] --> review[Review] --> merge[Merge]
+```
+
+You do **not** need access to the maintainer's production Jira site or production Forge
+credentials to contribute. All required checks run locally and in CI without them.
+
+## Getting set up
+
+```bash
+git clone https://github.com/<your-fork>/kimai-jira.git
+cd kimai-jira
+npm ci
+```
+
+## Before opening a pull request
+
+Run the same checks CI runs:
+
+```bash
+npm run check
+python3 -m zensical build -f zensical.toml --clean --strict
+```
+
+Install the Git hooks if you are not using the included Dev Container:
+
+```bash
+python3 -m pip install --user pre-commit
+python3 -m pre_commit install --install-hooks
+```
+
+Commits and pull request titles must follow [Conventional Commits](https://www.conventionalcommits.org/).
+This controls semantic versioning and the generated GitHub release notes.
+
+If you want to also exercise Forge-specific validation, run `npx forge lint` against your own
+(non-production) Atlassian developer account — see [docs/development.md](docs/development.md).
+
+## Testing against a real Forge/Jira/Kimai environment
+
+Use your own free Atlassian developer account and a disposable demo site:
+
+```bash
+npx forge login
+npx forge register kimai-for-jira
+npx forge deploy
+npx forge install --demo-site
+```
+
+## Code organization
+
+Please keep the separation between `src/jira/`, `src/kimai/` and `src/sync/` intact: neither
+Jira- nor Kimai-specific code should implement synchronization policy directly. See
+[docs/architecture.md](docs/architecture.md).
+
+## Security
+
+Never commit credentials, tokens, or production URLs containing credentials. See
+[`SECURITY.md`](SECURITY.md) for how to report vulnerabilities privately.
+
+## Deployment
+
+Deployment to any real Forge installation happens through a separate, maintainer-triggered
+workflow (`.github/workflows/deploy.yml`). Pull requests never trigger a deployment.

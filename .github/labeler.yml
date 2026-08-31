@@ -1,0 +1,39 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'README.md'
+          - 'CHANGELOG.md'
+          - 'CONTRIBUTING.md'
+          - 'zensical.toml'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'package.json'
+          - 'package-lock.json'
+          - 'docs/requirements.txt'
+          - '.github/dependabot.yml'
+
+github-actions:
+  - changed-files:
+      - any-glob-to-any-file: '.github/workflows/**'
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: 'src/frontend/**'
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/jira/**'
+          - 'src/kimai/**'
+          - 'src/resolvers/**'
+          - 'src/storage/**'
+          - 'src/sync/**'
+          - 'src/webhooks/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
+

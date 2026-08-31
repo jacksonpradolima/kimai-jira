@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem in the Kimai for Jira integration.
+title: 'fix: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Do not include API tokens, webhook secrets,
+        customer data, or Jira/Kimai URLs containing credentials.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behaviour and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open issue ...
+        2. Select ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Manual time entry
+        - Timer
+        - Jira to Kimai synchronization
+        - Kimai to Jira synchronization
+        - Administration or connection setup
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the app version, browser, and relevant Jira/Kimai versions. Redact sensitive data.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Remove tokens, secrets, personal data, and private URLs before attaching anything.
+

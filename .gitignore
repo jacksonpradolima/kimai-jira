@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+static/**/build/
+coverage/
+
+# Forge
+.forge/
+
+# Environment / secrets
+.env
+.env.local
+*.pem
+
+# Docs generated output
+site/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

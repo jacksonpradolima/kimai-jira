@@ -1,0 +1,5 @@
+# Automatically request review from the repository maintainer.
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @jacksonpradolima
+

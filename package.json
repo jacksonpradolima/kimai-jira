@@ -1,0 +1,55 @@
+{
+  "name": "kimai-for-jira",
+  "version": "0.1.0",
+  "description": "Open-source Kimai integration for Jira Cloud, built with Atlassian Forge",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "check": "npm run lint && npm run typecheck && npm test && npm run docs:ui:check",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:coverage": "jest --ci --coverage",
+    "test:watch": "jest --watch",
+    "docs:ui": "tsx scripts/ui-docs/generate.ts",
+    "docs:ui:check": "tsx scripts/ui-docs/generate.ts --check",
+    "forge:lint": "forge lint"
+  },
+  "dependencies": {
+    "@forge/api": "^8.0.4",
+    "@forge/bridge": "^6.3.0",
+    "@forge/kvs": "^2.0.4",
+    "@forge/react": "^12.1.2",
+    "@forge/resolver": "^2.0.0"
+  },
+  "devDependencies": {
+    "@forge/cli": "^13.4.0",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/github": "^12.0.9",
+    "@semantic-release/npm": "^13.1.5",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@playwright/test": "^1.54.2",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "semantic-release": "^25.0.9",
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.20.5",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  }
+}
