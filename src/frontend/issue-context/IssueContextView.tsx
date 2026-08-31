@@ -8,8 +8,6 @@ import {
   Select,
   SectionMessage,
   Stack,
-  Tag,
-  TagGroup,
   Tab,
   TabList,
   TabPanel,
@@ -64,8 +62,6 @@ export interface IssueContextViewProps {
   manualDate: string;
   manualStartTime: string;
   manualEndTime: string;
-  manualTags: string[];
-  manualTagInput: string;
   manualBillable: boolean;
   isManualEntryPending: boolean;
   manualEntryMessage?: string;
@@ -81,9 +77,6 @@ export interface IssueContextViewProps {
   onManualDateChange: (value: string) => void;
   onManualStartTimeChange: (value: string) => void;
   onManualEndTimeChange: (value: string) => void;
-  onManualTagInputChange: (value: string) => void;
-  onAddManualTag: () => void;
-  onRemoveManualTag: (tag: string) => void;
   onManualBillableChange: (value: boolean) => void;
   onCreateManualEntry: () => void;
   onStart: () => void;
@@ -109,8 +102,6 @@ export const IssueContextView = ({
   manualDate,
   manualStartTime,
   manualEndTime,
-  manualTags,
-  manualTagInput,
   manualBillable,
   isManualEntryPending,
   manualEntryMessage,
@@ -126,9 +117,6 @@ export const IssueContextView = ({
   onManualDateChange,
   onManualStartTimeChange,
   onManualEndTimeChange,
-  onManualTagInputChange,
-  onAddManualTag,
-  onRemoveManualTag,
   onManualBillableChange,
   onCreateManualEntry,
   onStart,
@@ -171,9 +159,6 @@ export const IssueContextView = ({
             onDescriptionChange={onManualDescriptionChange}
             onEndTimeChange={onManualEndTimeChange}
             onStartTimeChange={onManualStartTimeChange}
-            onTagInputChange={onManualTagInputChange}
-            onAddTag={onAddManualTag}
-            onRemoveTag={onRemoveManualTag}
             onManageConnection={onManageConnection}
             selectedCustomer={selectedCustomer}
             state={state}
@@ -183,8 +168,6 @@ export const IssueContextView = ({
             totalDuration={manualTotalDuration}
             endTime={manualEndTime}
             startTime={manualStartTime}
-            tags={manualTags}
-            tagInput={manualTagInput}
           />
         </TabPanel>
         <TabPanel>
@@ -291,8 +274,6 @@ interface ManualTimeEntryProps {
   date: string;
   startTime: string;
   endTime: string;
-  tags: string[];
-  tagInput: string;
   billable: boolean;
   isPending: boolean;
   message?: string;
@@ -301,18 +282,15 @@ interface ManualTimeEntryProps {
   onDateChange: (value: string) => void;
   onStartTimeChange: (value: string) => void;
   onEndTimeChange: (value: string) => void;
-  onTagInputChange: (value: string) => void;
-  onAddTag: () => void;
-  onRemoveTag: (tag: string) => void;
   onManageConnection: () => void;
   onBillableChange: (value: boolean) => void;
   onCreate: () => void;
 }
 
 function ManualTimeEntry({
-  state, customerOptions, selectedCustomer, description, totalDuration, date, startTime, endTime, tags, tagInput, billable,
+  state, customerOptions, selectedCustomer, description, totalDuration, date, startTime, endTime, billable,
   isPending, message, onCustomerChange, onDescriptionChange, onDateChange,
-  onStartTimeChange, onEndTimeChange, onTagInputChange, onAddTag, onRemoveTag, onManageConnection, onBillableChange, onCreate,
+  onStartTimeChange, onEndTimeChange, onManageConnection, onBillableChange, onCreate,
 }: ManualTimeEntryProps) {
   const blockingReason = !state.personalTokenConfigured
     ? 'Add your personal Kimai API token before adding time.'
@@ -408,21 +386,7 @@ function ManualTimeEntry({
               size="large"
             />
           </FormSection>
-          <FormSection>
-            <Label labelFor="manual-tags">Tags</Label>
-            <Textfield id="manual-tags" placeholder="Type a tag, then choose Add tag" value={tagInput} onChange={(event: { target: { value?: unknown } }) => onTagInputChange(String(event.target.value ?? ''))} />
-            <Button appearance="subtle" isDisabled={!tagInput.trim()} onClick={onAddTag}>Add tag</Button>
-            {tags.length > 0 && (
-              <TagGroup>
-                {tags.map((tag) => (
-                  <Inline key={tag} alignBlock="center" space="space.050">
-                    <Tag color="blueLight" text={tag} />
-                    <Button appearance="subtle" onClick={() => onRemoveTag(tag)}>Remove</Button>
-                  </Inline>
-                ))}
-              </TagGroup>
-            )}
-          </FormSection>
+          {/* Tags are temporarily disabled while we verify Kimai timesheet creation. */}
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>

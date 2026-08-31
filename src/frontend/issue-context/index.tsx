@@ -67,8 +67,6 @@ const App = () => {
   const [manualDate, setManualDate] = useState(localDateInputValue);
   const [manualStartTime, setManualStartTime] = useState(() => localTimeInputValue(new Date()));
   const [manualEndTime, setManualEndTime] = useState(() => localTimeInputValue(new Date(Date.now() + 60 * 60 * 1000)));
-  const [manualTags, setManualTags] = useState<string[]>([]);
-  const [manualTagInput, setManualTagInput] = useState('');
   const [manualBillable, setManualBillable] = useState(false);
   const [isManualEntryPending, setIsManualEntryPending] = useState(false);
   const [manualEntryMessage, setManualEntryMessage] = useState<string | undefined>(undefined);
@@ -227,7 +225,6 @@ const App = () => {
         startTime: manualStartTime,
         endTime: manualEndTime,
         timezoneOffsetMinutes: timezoneOffsetForManualStart(manualDate, manualStartTime),
-        tags: manualTags,
         billable: manualBillable,
       })) as { ok?: boolean; error?: string; timesheet?: { id?: number } };
       if (!result.ok) {
@@ -235,8 +232,6 @@ const App = () => {
         return;
       }
       setManualDescription(defaultManualDescription(state));
-      setManualTags([]);
-      setManualTagInput('');
       setManualEntryMessage('Time added');
     } catch (manualError) {
       setManualEntryMessage(`Unable to add time to Kimai: ${String(manualError)}`);
@@ -274,16 +269,6 @@ const App = () => {
       onManualDescriptionChange={setManualDescription}
       onManualEndTimeChange={setManualEndTime}
       onManualStartTimeChange={setManualStartTime}
-      onManualTagInputChange={setManualTagInput}
-      onAddManualTag={() => {
-        const tag = manualTagInput.trim();
-        if (!tag) return;
-        setManualTags((current) => current.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())
-          ? current
-          : [...current, tag]);
-        setManualTagInput('');
-      }}
-      onRemoveManualTag={(tag) => setManualTags((current) => current.filter((value) => value !== tag))}
       onPersonalApiTokenChange={setPersonalApiToken}
       onResetPersonalToken={handleResetPersonalToken}
       onSavePersonalToken={handleSavePersonalToken}
@@ -297,8 +282,6 @@ const App = () => {
       manualEndTime={manualEndTime}
       manualEntryMessage={manualEntryMessage}
       manualStartTime={manualStartTime}
-      manualTags={manualTags}
-      manualTagInput={manualTagInput}
       manualTotalDuration={totalManualDuration}
       selectedKimaiCustomerId={selectedKimaiCustomerId}
       activeTab={activeTab}

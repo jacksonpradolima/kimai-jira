@@ -47,7 +47,6 @@ interface ManualTimeEntryPayload {
   startTime?: unknown;
   endTime?: unknown;
   duration?: unknown;
-  tags?: unknown;
   billable?: unknown;
   timezoneOffsetMinutes?: unknown;
 }
@@ -107,16 +106,6 @@ function addDuration(begin: string, seconds: number): string {
   const beginAsUtc = new Date(`${begin}Z`);
   const end = new Date(beginAsUtc.getTime() + seconds * 1000).toISOString();
   return end.slice(0, 19);
-}
-
-function manualTags(value: unknown): string[] | undefined {
-  const rawTags = Array.isArray(value)
-    ? value.filter((tag): tag is string => typeof tag === 'string')
-    : typeof value === 'string' ? value.split(',') : [];
-  const tags = rawTags
-    .map((tag) => tag.trim())
-    .filter((tag, index, all) => Boolean(tag) && all.findIndex((candidate) => candidate.toLocaleLowerCase() === tag.toLocaleLowerCase()) === index);
-  return tags.length > 0 ? tags : undefined;
 }
 
 function timerProjectName(issue: JiraIssueDetails): string {
@@ -459,7 +448,6 @@ resolver.define('createManualTimeEntry', async (request) => {
       activity: target.activityId,
       user: userMapping!.kimaiUserId,
       description: manualDescriptionWithIssueMarker(issueKey, payload.description),
-      tags: manualTags([...(manualTags(payload.tags) ?? []), issueKey]),
       billable: payload.billable === true,
     });
     return { ok: true, timesheet };

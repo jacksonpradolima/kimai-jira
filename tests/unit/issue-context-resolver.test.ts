@@ -337,7 +337,6 @@ describe('issue context resolver', () => {
         startTime: '09:00',
         duration: '01:30:00',
         timezoneOffsetMinutes: 0,
-        tags: ['Routine', 'Billing', 'Routine'],
         billable: true,
       },
     });
@@ -349,7 +348,6 @@ describe('issue context resolver', () => {
       activity: 20,
       user: 42,
       description: '[BA-3] Investigate billing synchronization',
-      tags: ['Routine', 'Billing', 'BA-3'],
       billable: true,
     });
     expect(result).toEqual({ ok: true, timesheet: { id: 8300 } });

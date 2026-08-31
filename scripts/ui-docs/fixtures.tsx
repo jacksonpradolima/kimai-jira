@@ -51,14 +51,11 @@ function issueFixture(
         onCustomerChange={noop}
         onManageConnection={noop}
         onCreateManualEntry={noop}
-        onAddManualTag={noop}
         onManualBillableChange={noop}
         onManualDateChange={noop}
         onManualDescriptionChange={noop}
         onManualEndTimeChange={noop}
         onManualStartTimeChange={noop}
-        onManualTagInputChange={noop}
-        onRemoveManualTag={noop}
         onPersonalApiTokenChange={noop}
         onResetPersonalToken={noop}
         onSavePersonalToken={noop}
@@ -70,8 +67,6 @@ function issueFixture(
         manualDescription="[KJ-142] Implement Jira/Kimai synchronization"
         manualEndTime="10:30"
         manualStartTime="09:00"
-        manualTagInput=""
-        manualTags={['Routine', 'Documentation']}
         manualTotalDuration="01:30:00"
         selectedKimaiCustomerId={21}
         state={state}
