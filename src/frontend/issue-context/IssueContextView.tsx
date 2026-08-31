@@ -209,7 +209,8 @@ export const IssueContextView = ({
             ) : state.timerSetupError ? (
               <><Text>{state.timerSetupError}</Text>{connection}</>
             ) : (
-              <Stack space="space.100">
+              <Box xcss={xcss({ width: '100%' })}>
+                <Stack space="space.100">
                 {customerOptions.length === 0 ? (
                   <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
                 ) : (
@@ -231,15 +232,15 @@ export const IssueContextView = ({
                 )}
                 <FormSection>
                   <Label labelFor="timer-project">Project</Label>
-                  <Textfield id="timer-project" isReadOnly value={state.target?.projectName ?? ''} />
+                  <Textfield id="timer-project" isDisabled value={state.target?.projectName ?? ''} width="100%" />
                 </FormSection>
                 <FormSection>
                   <Label labelFor="timer-issue">Issue (Kimai activity)</Label>
-                  <Textfield id="timer-issue" isReadOnly value={state.target?.activityName ?? ''} />
+                  <Textfield id="timer-issue" isDisabled value={state.target?.activityName ?? ''} width="100%" />
                 </FormSection>
                 <FormSection>
                   <Label labelFor="timer-elapsed">Elapsed time</Label>
-                  <Textfield id="timer-elapsed" isReadOnly value={elapsedTime} />
+                  <Textfield id="timer-elapsed" isDisabled value={elapsedTime} width="100%" />
                 </FormSection>
                 {state.runningTimesheet ? (
                   <LoadingButton appearance="primary" isDisabled={isTimerActionPending} isLoading={isTimerActionPending} onClick={onStop} shouldFitContainer>Stop</LoadingButton>
@@ -257,7 +258,8 @@ export const IssueContextView = ({
                   borderBlockStartWidth: 'border.width',
                   paddingBlockStart: 'space.150',
                 })}>{connection}</Box>
-              </Stack>
+                </Stack>
+              </Box>
             )}
             {error && <Text>{error}</Text>}
           </Stack>
@@ -437,7 +439,9 @@ function PersonalKimaiConnection({
   }
   return (
     <Stack space="space.100">
-      <Text>Your Kimai API token is personal. It is encrypted and only used for your timers and worklogs.</Text>
+      <Box xcss={xcss({ paddingBlockStart: 'space.200' })}>
+        <Text>Your Kimai API token is personal. It is encrypted and only used for your timers and worklogs.</Text>
+      </Box>
       <FormSection>
         <Label labelFor="personal-kimai-token">Kimai API token</Label>
         <Textfield
@@ -448,9 +452,9 @@ function PersonalKimaiConnection({
         />
       </FormSection>
       <Inline space="space.100">
-        <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back to time entry</Button>
-        <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save personal API token</LoadingButton>
-        {hasPersonalToken && <Button appearance="subtle" isDisabled={isPending} onClick={onReset}>Reset API key</Button>}
+        <Button appearance="subtle" isDisabled={isPending} onClick={onBack}>Back</Button>
+        <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save</LoadingButton>
+        {hasPersonalToken && <Button appearance="subtle" isDisabled={isPending} onClick={onReset}>Reset</Button>}
       </Inline>
       {message && <SectionMessage appearance={message.startsWith('Connected') ? 'success' : 'error'} title={message.startsWith('Connected') ? 'Kimai connected' : 'Kimai connection error'}>{message}</SectionMessage>}
     </Stack>
