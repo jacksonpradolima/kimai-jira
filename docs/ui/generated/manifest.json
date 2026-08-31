@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "sourceHash": "565879885e44639db31f772b2d084c9d92680a3cee00c19cbec18034afe25a07",
+  "sourceHash": "347618619e01ba0239307ba97c67711517e0c375d9914e94a5f91d37018f8e65",
   "fixtures": {
     "issue-timer-stopped.png": "3f4edcf7005b542877f81a6d2e0abcb6f0d03126c58779c4934c5da0d44aec4b",
     "issue-timer-running.png": "7f9ccfa3ccd8504289265179507357993d8d49dacc8f079c2c9fe66f58d3c0b9",
     "issue-not-configured.png": "55de47a39fdf4a999efef281d8ed554e3a44aa80ba5d74fab18e66d7e9c103e5",
     "issue-timer-unavailable.png": "80b09bbc7fc6c0a5dc5bdca605e5de11e65af5749fe21d2bdc23864ba451cd2b",
-    "manual-entry-current.png": "ff54dfcb71cfe17eb64fb096001e80aeac3bb5be48b8eb8cdb6aa2e070b2f242",
+    "manual-entry-current.png": "2dc74fde0f8d01ebe3c2292fcac5b937930a8e50d62abae73d5b1476ce88427b",
     "issue-personal-connection.png": "8eb1d5a261e81def122b29b0c457f8177ceaee7ce1d4f72a0f2951802d3e0599",
     "admin-configuration.png": "aa3bb16cc24a36d1e2016f4417d421e046ec6693fe9c8369882ba53075e2e2f7",
     "admin-webhook.png": "7dc3776b3b7f77d5df02166e2347c73674f273919fe4fbb6d34bcc23834b9283"
