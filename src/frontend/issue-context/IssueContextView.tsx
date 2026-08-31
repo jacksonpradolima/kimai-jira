@@ -210,7 +210,7 @@ export const IssueContextView = ({
               <><Text>{state.timerSetupError}</Text>{connection}</>
             ) : (
               <Box xcss={xcss({ width: '100%' })}>
-                <Stack space="space.100">
+                <Stack alignInline="stretch" space="space.100">
                 {customerOptions.length === 0 ? (
                   <Text>No Kimai customers are available. Create a customer in Kimai before starting a timer.</Text>
                 ) : (

@@ -72,7 +72,7 @@ export class HttpKimaiClient implements KimaiClient {
     });
 
     if (!response.ok) {
-      throw new KimaiApiError(`Kimai API request to ${path} failed`, response.status);
+      throw new KimaiApiError(`Kimai API request to ${path} failed (HTTP ${response.status})`, response.status);
     }
 
     if (response.status === 204) {

@@ -77,4 +77,15 @@ describe('HttpKimaiClient', () => {
 
     expect(fetchFn).toHaveBeenCalledWith('https://kimai.example.test/api/users/me', expect.any(Object));
   });
+
+  it('includes the Kimai HTTP status in a safe request error', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 422 });
+    const client = new HttpKimaiClient({
+      baseUrl: 'https://kimai.example.test', apiToken: 'token', fetchFn: fetchFn as unknown as typeof fetch,
+    });
+
+    await expect(client.createTimesheet({
+      begin: '2026-08-30T09:00:00', end: '2026-08-30T10:00:00', project: 1, activity: 2,
+    })).rejects.toThrow('Kimai API request to /api/timesheets failed (HTTP 422)');
+  });
 });
