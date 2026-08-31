@@ -6,6 +6,7 @@ import {
   Label,
   LoadingButton,
   Select,
+  SectionMessage,
   Stack,
   Tag,
   TagGroup,
@@ -418,7 +419,7 @@ function ManualTimeEntry({
           <Button onClick={onManageConnection}>Manage Kimai connection</Button>
         </Stack>
       </Box>
-      {message && <Text>{message}</Text>}
+      {message && <SectionMessage appearance={message.startsWith('Time entry') ? 'success' : 'error'} title={message.startsWith('Time entry') ? 'Time added' : 'Unable to add time'}>{message}</SectionMessage>}
     </Stack>
   );
 }
@@ -444,7 +445,7 @@ function PersonalKimaiConnection({
       </FormSection>
       <LoadingButton appearance="primary" isDisabled={isPending || !token} isLoading={isPending} onClick={onSave}>Save personal API token</LoadingButton>
       {hasPersonalToken && <Button isDisabled={isPending} onClick={onReset}>Reset API key</Button>}
-      {message && <Text>{message}</Text>}
+      {message && <SectionMessage appearance={message.startsWith('Connected') ? 'success' : 'error'} title={message.startsWith('Connected') ? 'Kimai connected' : 'Kimai connection error'}>{message}</SectionMessage>}
     </Stack>
   );
 }

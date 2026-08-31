@@ -48,7 +48,10 @@ export class HttpKimaiClient implements KimaiClient {
   private readonly fetchFn: typeof fetch;
 
   constructor(options: KimaiClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    // Kimai asks users for the browser base URL, not its `/api` endpoint.
+    // Accept a previously saved `/api` URL as well so existing installations
+    // do not issue invalid requests such as `/api/api/users/me`.
+    this.baseUrl = options.baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
     this.apiToken = options.apiToken;
     this.fetchFn = options.fetchFn ?? fetch;
   }

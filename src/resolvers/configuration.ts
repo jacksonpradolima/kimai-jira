@@ -124,7 +124,8 @@ function normalizeKimaiUrl(value: string | undefined): string | undefined {
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) {
       return undefined;
     }
-    return parsed.origin.replace(/\/$/, '') + parsed.pathname.replace(/\/$/, '');
+    const path = parsed.pathname.replace(/\/$/, '');
+    return parsed.origin.replace(/\/$/, '') + (path === '/api' ? '' : path);
   } catch {
     return undefined;
   }

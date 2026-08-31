@@ -7,8 +7,6 @@ import { AdminView, ConfigurationState } from './AdminView';
 const App = () => {
   const [state, setState] = useState<ConfigurationState | undefined>(undefined);
   const [url, setUrl] = useState('');
-  const [defaultProjectId, setDefaultProjectId] = useState('');
-  const [defaultActivityId, setDefaultActivityId] = useState('');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [webhookSecret, setWebhookSecret] = useState<string | undefined>(undefined);
@@ -18,8 +16,6 @@ const App = () => {
       const typed = result as ConfigurationState;
       setState(typed);
       setUrl(typed.config?.url ?? '');
-      setDefaultProjectId(typed.config?.defaultProjectId === undefined ? '' : String(typed.config.defaultProjectId));
-      setDefaultActivityId(typed.config?.defaultActivityId === undefined ? '' : String(typed.config.defaultActivityId));
       setError(undefined);
     }).catch(() => setError('Unable to load the current Kimai configuration.'));
   }, []);
@@ -28,8 +24,6 @@ const App = () => {
     try {
       const result = (await invoke('saveConnectionSettings', {
         url,
-        defaultProjectId: defaultProjectId === '' ? null : Number(defaultProjectId),
-        defaultActivityId: defaultActivityId === '' ? null : Number(defaultActivityId),
       })) as { ok?: boolean; error?: string };
       if (!result.ok) throw new Error(result.error ?? 'Unable to save the connection settings.');
       setSaved(true);
@@ -53,11 +47,7 @@ const App = () => {
 
   if (!state) return <Text>{error ?? 'Loading configuration...'}</Text>;
   return <AdminView
-    defaultActivityId={defaultActivityId}
-    defaultProjectId={defaultProjectId}
     error={error}
-    onDefaultActivityIdChange={setDefaultActivityId}
-    onDefaultProjectIdChange={setDefaultProjectId}
     onGenerateWebhookSecret={onGenerateWebhookSecret}
     onSave={onSave}
     onUrlChange={setUrl}

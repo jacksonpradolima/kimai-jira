@@ -103,4 +103,12 @@ describe('configuration resolver', () => {
     });
     expect(mockSetKimaiConfig).toHaveBeenCalledWith({ url: 'https://new-kimai.example.test/base' });
   });
+
+  it('normalizes an API endpoint to the Kimai browser base URL', async () => {
+    const saveConnectionSettings = (handler as unknown as typeof mockDefinitions).saveConnectionSettings;
+
+    await saveConnectionSettings({ payload: { url: 'https://kimai.example.test/api' } });
+
+    expect(mockSetKimaiConfig).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://kimai.example.test' }));
+  });
 });

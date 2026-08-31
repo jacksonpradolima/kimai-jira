@@ -68,4 +68,13 @@ describe('HttpKimaiClient', () => {
       expect.any(Object),
     );
   });
+
+  it('accepts a Kimai API URL without duplicating the API path', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 200, json: jest.fn().mockResolvedValue({ id: 42 }) });
+    const client = new HttpKimaiClient({ baseUrl: 'https://kimai.example.test/api', apiToken: 'token', fetchFn: fetchFn as unknown as typeof fetch });
+
+    await client.getCurrentUser();
+
+    expect(fetchFn).toHaveBeenCalledWith('https://kimai.example.test/api/users/me', expect.any(Object));
+  });
 });
