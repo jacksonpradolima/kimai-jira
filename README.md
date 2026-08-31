@@ -54,9 +54,9 @@ with `--site`; the full fallback is in the [deployment guide](docs/deployment.md
 The UI gallery is generated from the same Forge UI Kit view components used by the app. See
 [the complete UI documentation](docs/ui/README.md) for every state and regeneration details.
 
-| Running timer | Administration |
+| Manual time entry | Administration |
 | --- | --- |
-| ![Running Kimai timer](docs/ui/generated/issue-timer-running.png) | ![Kimai administration](docs/ui/generated/admin-configuration.png) |
+| ![Manual Kimai time entry](docs/ui/generated/manual-entry-current.png) | ![Kimai administration](docs/ui/generated/admin-configuration.png) |
 
 ## Status
 
