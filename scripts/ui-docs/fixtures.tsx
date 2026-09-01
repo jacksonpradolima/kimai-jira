@@ -32,6 +32,7 @@ function issueFixture(
   state: TimerState,
   elapsedTime: string,
   isManagingConnection = false,
+  manualEntryMessage?: string,
 ): UiDocumentationFixture {
   return {
     fileName,
@@ -45,6 +46,7 @@ function issueFixture(
         isManualEntryPending={false}
         isPersonalConnectionPending={false}
         isTimerActionPending={false}
+        manualEntryMessage={manualEntryMessage}
         onConnectionBack={noop}
         onCustomerChange={noop}
         onManageConnection={noop}
@@ -105,6 +107,13 @@ function adminFixture(fileName: string, overrides: Partial<AdminViewProps>): UiD
 export const uiDocumentationFixtures: UiDocumentationFixture[] = [
   issueFixture('issue-not-configured.png', { configured: false }, '00:00:00'),
   issueFixture('manual-entry-current.png', issueState, '00:00:00'),
+  issueFixture(
+    'manual-entry-forbidden-character-error.png',
+    issueState,
+    '00:00:00',
+    false,
+    'Kimai does not allow the character \'"\' in the Jira issue summary (Fix the "billing" export). Rename it in Jira and try again.',
+  ),
   issueFixture('issue-personal-connection.png', { configured: true, personalTokenConfigured: false }, '00:00:00', true),
   adminFixture('admin-configuration.png', { saved: true }),
   adminFixture('admin-webhook.png', {

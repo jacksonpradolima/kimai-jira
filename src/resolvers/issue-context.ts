@@ -211,14 +211,14 @@ async function resolveTimerTarget(
     }
 
     const projectName = timerProjectName(issue);
-    assertValidKimaiName(projectName, `the Jira project name ("${issue.project.name}")`);
+    assertValidKimaiName(projectName, `the Jira project name (${issue.project.name})`);
     const projects = await client.getProjects();
     const project = projects.find(
       (candidate) => candidate.customer === kimaiCustomerId && candidate.name === projectName,
     ) ?? await client.createProject({ name: projectName, customer: kimaiCustomerId, visible: true });
 
     const activityName = timerActivityName(issue);
-    assertValidKimaiName(activityName, `the Jira issue summary ("${issue.summary}")`);
+    assertValidKimaiName(activityName, `the Jira issue summary (${issue.summary})`);
     const activities = await client.getActivities(project.id);
     const activity = activities.find(
       (candidate) => candidate.project === project.id && candidate.name === activityName,
