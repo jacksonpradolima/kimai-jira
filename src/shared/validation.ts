@@ -2,6 +2,12 @@
  * Validation and conversion helpers shared across the sync engine.
  */
 
+export const KIMAI_NAME_FORBIDDEN_CHARACTERS = ['<', '>', '"', '='] as const;
+
+export function findForbiddenKimaiNameCharacters(name: string): string[] {
+  return KIMAI_NAME_FORBIDDEN_CHARACTERS.filter((character) => name.includes(character));
+}
+
 /**
  * Converts a Jira-style duration string (e.g. "1h 30m", "90m", "2h") into
  * whole seconds. Returns `null` when the input cannot be parsed.

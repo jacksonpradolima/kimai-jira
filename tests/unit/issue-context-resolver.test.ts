@@ -282,6 +282,36 @@ describe('issue context resolver', () => {
     }));
   });
 
+  it('refuses a manual entry when the Jira issue summary has a Kimai-forbidden character', async () => {
+    mockGetIssueDetails.mockResolvedValue({
+      id: '10001',
+      key: 'BA-3',
+      summary: 'Fix the "billing" export',
+      project: { id: '10000', key: 'BA', name: 'Billing' },
+    });
+    const createManualTimeEntry = (handler as unknown as typeof mockDefinitions).createManualTimeEntry;
+
+    const result = await createManualTimeEntry({
+      context: { accountId: '712020:abc123', extension: { issue: { key: 'BA-3' } } },
+      payload: {
+        customerId: 1,
+        description: 'Investigate billing synchronization',
+        date: '2026-08-30',
+        startTime: '09:00',
+        endTime: '10:00',
+        timezoneOffsetMinutes: 0,
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Kimai does not allow the character \'"\' in the Jira issue summary ("Fix the "billing" export"). Rename it in Jira and try again.',
+    });
+    expect(mockCreateActivity).not.toHaveBeenCalled();
+    expect(mockCreateTimesheet).not.toHaveBeenCalled();
+    expect(mockCreateWorklog).not.toHaveBeenCalled();
+  });
+
   it('uses the saved Jira project customer when no customer is supplied', async () => {
     mockGetJiraProjectCustomerMapping.mockResolvedValue({
       jiraProjectId: '10000',
