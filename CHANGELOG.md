@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/jacksonpradolima/kimai-jira/compare/v1.1.0...v1.1.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* validate Kimai activity/project names for forbidden characters before creating them ([aedafca](https://github.com/jacksonpradolima/kimai-jira/commit/aedafcaa6e2d11ab49cd3172732f50e304cc36a3))
+
 # [1.1.0](https://github.com/jacksonpradolima/kimai-jira/compare/v1.0.0...v1.1.0) (2026-08-31)
 
 
