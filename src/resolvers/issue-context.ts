@@ -18,6 +18,7 @@ import {
   saveJiraProjectCustomerMapping,
 } from '../storage/issue-targets';
 import { AppError, toSafeUserMessage } from '../shared/errors';
+import { describeForbiddenKimaiNameCharacters } from '../shared/validation';
 import {
   deletePendingJiraWorklogCreation,
   recordMapping,
@@ -136,6 +137,13 @@ function timerActivityName(issue: JiraIssueDetails): string {
   return `[${issue.key}] ${issue.summary}`.slice(0, 150);
 }
 
+function assertValidKimaiName(name: string, source: string): void {
+  const message = describeForbiddenKimaiNameCharacters(name, source);
+  if (message) {
+    throw new AppError('KIMAI_NAME_INVALID_CHARACTERS', message);
+  }
+}
+
 async function resolveKimaiCustomerId(
   client: KimaiClient,
   issue: JiraIssueDetails,
@@ -197,12 +205,15 @@ async function resolveTimerTarget(
     }
 
     const projectName = timerProjectName(issue);
+    assertValidKimaiName(projectName, `the Jira project name (${issue.project.name})`);
+    const activityName = timerActivityName(issue);
+    assertValidKimaiName(activityName, `the Jira issue summary (${issue.summary})`);
+
     const projects = await client.getProjects();
     const project = projects.find(
       (candidate) => candidate.customer === kimaiCustomerId && candidate.name === projectName,
     ) ?? await client.createProject({ name: projectName, customer: kimaiCustomerId, visible: true });
 
-    const activityName = timerActivityName(issue);
     const activities = await client.getActivities(project.id);
     const activity = activities.find(
       (candidate) => candidate.project === project.id && candidate.name === activityName,
