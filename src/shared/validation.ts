@@ -8,6 +8,16 @@ export function findForbiddenKimaiNameCharacters(name: string): string[] {
   return KIMAI_NAME_FORBIDDEN_CHARACTERS.filter((character) => name.includes(character));
 }
 
+export function describeForbiddenKimaiNameCharacters(name: string, source: string): string | undefined {
+  const forbidden = findForbiddenKimaiNameCharacters(name);
+  if (forbidden.length === 0) {
+    return undefined;
+  }
+  const chars = forbidden.map((character) => `'${character}'`).join(', ');
+  const plural = forbidden.length > 1 ? 'characters' : 'character';
+  return `Kimai does not allow the ${plural} ${chars} in ${source}. Rename it in Jira and try again.`;
+}
+
 /**
  * Converts a Jira-style duration string (e.g. "1h 30m", "90m", "2h") into
  * whole seconds. Returns `null` when the input cannot be parsed.

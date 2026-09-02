@@ -1,11 +1,14 @@
 import React from 'react';
 import { AdminView, AdminViewProps } from '../../src/frontend/admin/AdminView';
 import { IssueContextView, TimerState } from '../../src/frontend/issue-context/IssueContextView';
+import { describeForbiddenKimaiNameCharacters } from '../../src/shared/validation';
 
 export interface UiDocumentationFixture {
   fileName: string;
   kind: 'issue' | 'admin';
   fullPage?: boolean;
+  issueKey?: string;
+  issueTitle?: string;
   element: React.ReactElement;
 }
 
@@ -33,11 +36,16 @@ function issueFixture(
   elapsedTime: string,
   isManagingConnection = false,
   manualEntryMessage?: string,
+  manualDescription = '[KJ-142] Implement Jira/Kimai synchronization',
+  issueKey = 'KJ-142',
+  issueTitle = 'Implement Jira/Kimai synchronization',
 ): UiDocumentationFixture {
   return {
     fileName,
     kind: 'issue',
     fullPage: true,
+    issueKey,
+    issueTitle,
     // Documentation fixture. Uses the same IssueContextView as the Forge runtime.
     element: (
       <IssueContextView
@@ -64,7 +72,7 @@ function issueFixture(
         personalApiToken={isManagingConnection ? 'docs-personal-token' : ''}
         manualBillable={true}
         manualDate="2026-08-30"
-        manualDescription="[KJ-142] Implement Jira/Kimai synchronization"
+        manualDescription={manualDescription}
         manualEndTime="10:30"
         manualStartTime="09:00"
         manualTotalDuration="01:30:00"
@@ -73,6 +81,25 @@ function issueFixture(
       />
     ),
   };
+}
+
+const forbiddenCharacterIssueKey = 'KJ-142';
+const forbiddenCharacterSummary = 'this is a "bad" name';
+const forbiddenCharacterActivityName = `[${forbiddenCharacterIssueKey}] ${forbiddenCharacterSummary}`;
+const forbiddenCharacterState: TimerState = {
+  ...issueState,
+  target: {
+    ...issueState.target!,
+    status: 'to-be-created',
+    activityName: forbiddenCharacterActivityName,
+  },
+};
+const forbiddenCharacterMessage = describeForbiddenKimaiNameCharacters(
+  forbiddenCharacterActivityName,
+  `the Jira issue summary (${forbiddenCharacterSummary})`,
+);
+if (!forbiddenCharacterMessage) {
+  throw new Error('forbiddenCharacterSummary fixture must actually contain a Kimai-forbidden character');
 }
 
 const adminBase = {
@@ -109,10 +136,13 @@ export const uiDocumentationFixtures: UiDocumentationFixture[] = [
   issueFixture('manual-entry-current.png', issueState, '00:00:00'),
   issueFixture(
     'manual-entry-forbidden-character-error.png',
-    issueState,
+    forbiddenCharacterState,
     '00:00:00',
     false,
-    'Kimai does not allow the character \'"\' in the Jira issue summary (Fix the "billing" export). Rename it in Jira and try again.',
+    forbiddenCharacterMessage,
+    forbiddenCharacterActivityName,
+    forbiddenCharacterIssueKey,
+    forbiddenCharacterSummary,
   ),
   issueFixture('issue-personal-connection.png', { configured: true, personalTokenConfigured: false }, '00:00:00', true),
   adminFixture('admin-configuration.png', { saved: true }),

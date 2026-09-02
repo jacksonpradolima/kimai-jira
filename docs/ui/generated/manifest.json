@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceHash": "ac57f947a98af65bd982520c450b38a55ec71e64fc894988e63c89ce3d07190d",
+  "sourceHash": "26de1d6c09522a84d1b915d027c1d18ebbb5d282cf0e204068dd2641095e0820",
   "fixtures": {
     "issue-not-configured.png": "55de47a39fdf4a999efef281d8ed554e3a44aa80ba5d74fab18e66d7e9c103e5",
     "manual-entry-current.png": "80fa3da09434247b076bbd22c85b56a1bbb408b1638f3e83795ed8bd57118ff3",
-    "manual-entry-forbidden-character-error.png": "ba7c02e76028f72ce7f78cc18da25a9bdbb61f272f512de1e902c27c78d33d21",
+    "manual-entry-forbidden-character-error.png": "ba67dc4fde9d9932ae276250854193027eac634164739170786fecd763d7009b",
     "issue-personal-connection.png": "3059044b611b8615fc9d2cab15c7cfab020b6f341b2a5139e835e1d5f43fe102",
     "admin-configuration.png": "aa3bb16cc24a36d1e2016f4417d421e046ec6693fe9c8369882ba53075e2e2f7",
     "admin-webhook.png": "7dc3776b3b7f77d5df02166e2347c73674f273919fe4fbb6d34bcc23834b9283"

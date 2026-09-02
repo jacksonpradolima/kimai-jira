@@ -18,7 +18,7 @@ import {
   saveJiraProjectCustomerMapping,
 } from '../storage/issue-targets';
 import { AppError, toSafeUserMessage } from '../shared/errors';
-import { findForbiddenKimaiNameCharacters } from '../shared/validation';
+import { describeForbiddenKimaiNameCharacters } from '../shared/validation';
 import {
   deletePendingJiraWorklogCreation,
   recordMapping,
@@ -138,16 +138,10 @@ function timerActivityName(issue: JiraIssueDetails): string {
 }
 
 function assertValidKimaiName(name: string, source: string): void {
-  const forbidden = findForbiddenKimaiNameCharacters(name);
-  if (forbidden.length === 0) {
-    return;
+  const message = describeForbiddenKimaiNameCharacters(name, source);
+  if (message) {
+    throw new AppError('KIMAI_NAME_INVALID_CHARACTERS', message);
   }
-  const chars = forbidden.map((character) => `'${character}'`).join(', ');
-  const plural = forbidden.length > 1 ? 'characters' : 'character';
-  throw new AppError(
-    'KIMAI_NAME_INVALID_CHARACTERS',
-    `Kimai does not allow the ${plural} ${chars} in ${source}. Rename it in Jira and try again.`,
-  );
 }
 
 async function resolveKimaiCustomerId(
