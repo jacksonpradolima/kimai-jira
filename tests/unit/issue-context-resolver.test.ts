@@ -307,6 +307,9 @@ describe('issue context resolver', () => {
       ok: false,
       error: 'Kimai does not allow the character \'"\' in the Jira issue summary (Fix the "billing" export). Rename it in Jira and try again.',
     });
+    expect(mockGetProjects).not.toHaveBeenCalled();
+    expect(mockCreateProject).not.toHaveBeenCalled();
+    expect(mockGetActivities).not.toHaveBeenCalled();
     expect(mockCreateActivity).not.toHaveBeenCalled();
     expect(mockCreateTimesheet).not.toHaveBeenCalled();
     expect(mockCreateWorklog).not.toHaveBeenCalled();
